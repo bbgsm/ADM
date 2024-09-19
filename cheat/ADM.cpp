@@ -505,20 +505,11 @@ public:
 };
 
 void websocketServer() {
-    int port = 5123;
+    int port = 6888;
     http.GET("/ping", [](const HttpContextPtr &ctx) {
         return ctx->send("pong", TEXT_HTML);
     });
-    http.GET("/xhcashy", [](const HttpContextPtr &ctx) {
-        std::string path = "webMap/map.html";
-        return ctx->sendFile(path.c_str());
-    });
-
-    http.GET("/mp_rr_divided_moon_mu1.jpg", [](const HttpContextPtr &ctx) {
-        std::string path = "webMap/mp_rr_divided_moon_mu1.jpg";
-        return ctx->sendFile(path.c_str());
-    });
-    // ws.setPingInterval(10000);
+    http.Static("/","webMap");
     wws.onopen = [](const WebSocketChannelPtr &channel, const HttpRequestPtr &req) {
         logInfo("onopen: GET %s\n", req->Path().c_str());
         auto ctx = channel->newContextPtr<MyContext>();
