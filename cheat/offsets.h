@@ -10,7 +10,7 @@
 #define OFF_LEVEL_NAME 0x17F66C4     // 对局名称
 /*** r5apex.exe Offset ***/
 
-/*** Object、Player ***/
+/*** Object、Player Offset ***/
 #define OFF_VISIBLE_TIME 0x19A0     // 最后可见时间 float(一直可见数值一直会增大)
 #define OFF_ITEM_ID 0x1568          // 物品id int
 #define OFF_BONES 0xDF8             // 骨骼指针
