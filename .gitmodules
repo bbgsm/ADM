@@ -1,3 +1,6 @@
 [submodule "libhv"]
 	path = libhv
 	url = https://github.com/ithewei/libhv.git
+[submodule "MemTools"]
+	path = MemTools
+	url = https://github.com/bbgsm/MemTools.git
