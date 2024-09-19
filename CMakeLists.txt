@@ -4,6 +4,8 @@ add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
 set(CMAKE_CXX_STANDARD 20)
+# 设置输出路径为项目根目录的out
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/out")
 
 add_subdirectory(libhv)
 
@@ -79,20 +81,16 @@ target_link_libraries(testGui
         ws2_32
         D3D11.lib
 )
-
 ########### 文件复制 #############
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(BUILD_TYPE_DIR "Debug")
-else()
-    set(BUILD_TYPE_DIR "Release")
-endif()
-
-file(COPY "webMap" DESTINATION "${CMAKE_BINARY_DIR}/${BUILD_TYPE_DIR}")
+# 无论如何设置都获取不到正确的编译输出目录，只能手动拼接剩下的路径
+file(COPY "webMap" DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Release")
+file(COPY "webMap" DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug")
 
 file(GLOB DATA_FILES "MemTools/dmaLibs/*.*")
 
 # 遍历文件列表并复制每个文件
 foreach(DATA_FILE ${DATA_FILES})
-    file(COPY ${DATA_FILE} DESTINATION "${CMAKE_BINARY_DIR}/${BUILD_TYPE_DIR}")
+    file(COPY ${DATA_FILE} DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Release")
+    file(COPY ${DATA_FILE} DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug")
 endforeach()
 ########### 文件复制 #############
