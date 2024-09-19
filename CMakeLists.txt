@@ -1,0 +1,98 @@
+cmake_minimum_required(VERSION 3.28)
+project(ADM)
+add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+
+set(CMAKE_CXX_STANDARD 20)
+
+add_subdirectory(libhv)
+
+include_directories(.)
+include_directories(MemTools)
+include_directories(MemTools/dmaLibs/include)
+include_directories(imgui)
+include_directories(cheat)
+include_directories(render)
+include_directories(CEPlugin)
+include_directories(CEPlugin/Memory)
+include_directories(CEPlugin/Hooks)
+include_directories(CEPlugin/CheatEngine)
+include_directories(httpserver/include)
+include_directories(tools/include)
+include_directories(libhv/include)
+include_directories(libhv/include/hv)
+include_directories(dmaLibs/include)
+
+file(GLOB_RECURSE RENDER_SOURCES "render/*.cpp" "render/*.h")
+file(GLOB_RECURSE CE_PLUGIN_SOURCES "CEPlugin/*.cpp" "CEPlugin/*.h" "CEPlugin/*.hpp" "CEPlugin/*.def" "cheat/*.cpp" "cheat/*.hpp")
+file(GLOB_RECURSE CHEAT_SRC_SOURCES "cheat/*.cpp" "cheat/*.hpp" "cheat/*.h")
+file(GLOB_RECURSE TEST_GUI_SRC_SOURCES "testGui/*.cpp" "testGui/*.hpp" "testGui/*.h")
+file(GLOB_RECURSE IMGUI_SOURCES "imgui/*.cpp" "imgui/*.h" "imgui/*.hpp")
+file(GLOB_RECURSE MEMORY_TOOLS_SOURCES
+        "MemTools/DirectMemoryTools.cpp"
+        "MemTools/DmaMemoryTools.cpp"
+        "MemTools/DumpMemoryTools.cpp"
+        "MemTools/MemoryToolsBase.cpp"
+        "MemTools/*.h"
+)
+
+
+add_executable(ADM
+        ${MEMORY_TOOLS_SOURCES}
+        ${RENDER_SOURCES}
+        ${IMGUI_SOURCES}
+        ${CHEAT_SRC_SOURCES}
+        ${HTTPSERVER_SOURCES}
+        ${TOOLS_SOURCES}
+)
+
+add_library(CEPlugin SHARED
+        ${MEMORY_TOOLS_SOURCES}
+        ${RENDER_SOURCES}
+        ${IMGUI_SOURCES}
+        ${CE_PLUGIN_SOURCES}
+)
+
+add_executable(testGui
+        ${IMGUI_SOURCES}
+        ${RENDER_SOURCES}
+        ${TEST_GUI_SRC_SOURCES}
+)
+
+target_link_libraries(ADM
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/leechcore.lib"
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/vmm.lib"
+        ws2_32
+        D3D11.lib
+        hv_static
+)
+
+target_link_libraries(CEPlugin
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/leechcore.lib"
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/vmm.lib"
+        ws2_32
+        D3D11.lib
+        hv_static
+)
+
+target_link_libraries(testGui
+        ws2_32
+        D3D11.lib
+)
+
+########### 文件复制 #############
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(BUILD_TYPE_DIR "Debug")
+else()
+    set(BUILD_TYPE_DIR "Release")
+endif()
+
+file(COPY "webMap" DESTINATION "${CMAKE_BINARY_DIR}/${BUILD_TYPE_DIR}")
+
+file(GLOB DATA_FILES "MemTools/dmaLibs/*.*")
+
+# 遍历文件列表并复制每个文件
+foreach(DATA_FILE ${DATA_FILES})
+    file(COPY ${DATA_FILE} DESTINATION "${CMAKE_BINARY_DIR}/${BUILD_TYPE_DIR}")
+endforeach()
+########### 文件复制 #############
