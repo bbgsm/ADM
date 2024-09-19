@@ -263,7 +263,7 @@
         });
     }
 
-    const ws = new WebSocket('ws://' + window.location.hostname + ':5123');
+    const ws = new WebSocket('ws://' + window.location.hostname + ':6888');
     ws.onmessage = function (event) {
         const players = JSON.parse(event.data);
         if (!players || players.length === 0) return;
