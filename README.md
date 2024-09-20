@@ -1,6 +1,13 @@
 # ADM
 Apex Dma 方框、网页地图分享
+# 图片
 
+* 方框
+<br> <img src="img/player.jpg" width="800">
+* 物品
+<br> <img src="img/object.jpg" width="800">
+* 网页地图
+<br> <img src="img/webMap.jpg" width="300">
 # 网页地图功能地址
 * 运行ADM后访问下面地址
 * http://127.0.0.1:6888/map.html
