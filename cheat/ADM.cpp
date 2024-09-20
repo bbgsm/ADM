@@ -25,8 +25,6 @@ struct EntityAddr {
 };
 // 对象结构体
 struct OObject {
-    // 屏幕坐标
-    VectorRect screenPosition;
     // 距离(米)
     int distance = 0;
     // 血量
@@ -39,20 +37,22 @@ struct OObject {
     int teamId = -1;
     // 存活状态
     int lifeState = 0;
-    // 名称
-    char name[32] = {0};
-    // 视角旋转
-    Vector2D viewAngles;
-    // 是否是玩家
-    bool isPlayer = false;
-    // 对象地址
-    Addr addr = 0;
     // 物品id
     int itemId = 0;
     // 最后可见时间
     float lastVisTime = 0;
+    // 是否是玩家
+    bool isPlayer = false;
+    // 视角旋转
+    Vector2D viewAngles;
+    // 屏幕坐标
+    VectorRect screenPosition;
     // 对象3d坐标
     Vector3D playerPosition;
+    // 对象地址
+    Addr addr = 0;
+    // 名称
+    char name[32] = {0};
 };
 
 // 全局运行标记
@@ -76,7 +76,7 @@ Vector3D localPlayerPosition;
 // 最大物品数
 int maxObject = 10000;
 // 物品列表读取起始下标
-int beginObjectIndex = 2000;
+int beginObjectIndex = maxPlayer;
 
 /*** 物资***/
 OObject swapObjects[1000];
@@ -90,13 +90,14 @@ std::mutex objMutex;
 std::mutex webMutex;
 
 std::map<int, std::string> mapNames = {
-{236, "3倍镜"},  {201, "紫头"}, {202, "金头"},   {195, "医疗箱"}, {280, "涡轮"},
-{246, "10倍镜"}, {200, "凤凰"}, {230, "蓝包"},   {203, "大电"},   {225, "紫包"},
-{226, "金包"},   {235, "手雷"}, {234, "铝热剂"}, {236, "电弧星"}, {335, "升级包"},
+{236, "3倍镜"},  {201, "紫头"},   {202, "金头"},   {195, "医疗箱"},   {280, "涡轮"},         {240, "10倍镜"},
+{194, "凤凰"},   {197, "大电"},   {224, "蓝包"},   {225, "紫包"},     {226, "金包"},         {229, "手雷"},
+{228, "铝热剂"}, {230, "电弧星"}, {329, "升级包"}, {270, "枪托(紫)"}, {258, "能量弹夹(紫)"}, {259, "能量弹夹(金)"},
+{49, "R99"},     {19, "专注"},    {132, "波赛克"}, {1, "克雷贝尔"},   {227, "手刀"},
 };
 
 
-void drawObject(ImColor color, OObject player) {
+void drawObject(ImColor color, const OObject &player) {
     float x = player.screenPosition.x;
     float y = player.screenPosition.y;
     float w = player.screenPosition.w;
@@ -111,7 +112,7 @@ void drawObject(ImColor color, OObject player) {
     draw->AddText(ImVec2(x + w / 2 - (textSize.x / 2), y + h + 2), color, nameText.c_str());
 }
 
-void drawPlayer(ImColor color, OObject player, float line_w) {
+void drawPlayer(ImColor color, const OObject &player, float line_w) {
     float x = player.screenPosition.x;
     float y = player.screenPosition.y;
     float w = player.screenPosition.w;
@@ -166,56 +167,73 @@ void entityAddrsRead() {
     }
 }
 
+std::string longToHex(Addr value) {
+    std::stringstream ss;
+    ss << std::hex << std::uppercase << value;
+    return ss.str();
+}
+
 /**
  * 物品读取线程
  */
 void objTest() {
     EntityAddr objectAddrs[10000];
     OObject cacheObjects[1000];
+    int objectIndex = 0;
     while (isRun) {
-        entityMutex.lock();
+        objectIndex = 0;
         int count = maxObject - beginObjectIndex;
-        memcpy(objectAddrs, entityAddrs, sizeof(EntityAddr) * count);
-        entityMutex.unlock();
-        Handle handle = mem->createScatter();
-        mem->executeReadScatter(handle);
-        mem->closeScatterHandle(handle);
-        int objectIndex = 0;
-        for (int i = 0; i < count; i++) {
-            Addr object = objectAddrs[i].addr;
-            int itemId = mem->readI(object, OFF_ITEM_ID);
-            if (itemId < 200 || itemId > 300 || !mapNames.contains(itemId)) {
-                continue;
+        if (count > 0) {
+            entityMutex.lock();
+            memcpy(objectAddrs, entityAddrs, sizeof(EntityAddr) * count);
+            entityMutex.unlock();
+            Handle handle = mem->createScatter();
+            mem->executeReadScatter(handle);
+            mem->closeScatterHandle(handle);
+            for (int i = 0; i < count; i++) {
+                Addr object = objectAddrs[i].addr;
+                if (!MemoryToolsBase::isAddrValid(object)) {
+                    continue;
+                }
+                int itemId = mem->readI(object, OFF_ITEM_ID);
+                if (itemId <= 0 || itemId > 400 || !mapNames.contains(itemId)) {
+                    continue;
+                }
+                // 物品坐标
+                mem->readV(&cacheObjects[objectIndex].playerPosition, sizeof(Vector3D), object, OFF_ORIGIN);
+                if (cacheObjects[objectIndex].playerPosition.isZero()) {
+                    continue;
+                }
+                // 超出范围的物品跳过
+                float dis =
+                computeDistance(localPlayerPosition, cacheObjects[objectIndex].playerPosition) * distanceScal;
+                if (dis > 200) {
+                    continue;
+                }
+                std::string str = std::to_string(itemId);
+                cacheObjects[objectIndex].isPlayer = false;
+                cacheObjects[objectIndex].itemId = itemId;
+                cacheObjects[objectIndex].distance = dis;
+                strcpy(cacheObjects[objectIndex].name, mapNames[itemId].c_str());
+                // strcpy(cacheObjects[objectIndex].name, longToHex(object).c_str());
+                // strcpy(cacheObjects[objectIndex].name, std::to_string(itemId).c_str());
+                objectIndex++;
+                if (objectIndex >= 1000) {
+                    break;
+                }
             }
-            // 物品坐标
-            mem->readV(&cacheObjects[objectIndex].playerPosition, sizeof(Vector3D), object, OFF_ORIGIN);
-            if (cacheObjects[objectIndex].playerPosition.isZero()) {
-                continue;
-            }
-            // 超出范围的物品跳过
-            float dis = computeDistance(localPlayerPosition, cacheObjects[objectIndex].playerPosition) * distanceScal;
-            if (dis > 200) {
-                continue;
-            }
-            std::string str = std::to_string(itemId);
-            cacheObjects[objectIndex].isPlayer = false;
-            cacheObjects[objectIndex].itemId = itemId;
-            cacheObjects[objectIndex].distance = 10;
-            strcpy(cacheObjects[objectIndex].name, mapNames[itemId].c_str());
-            objectIndex++;
-            if (objectIndex >= 1000) {
-                break;
-            }
-            // strcpy(tempObjects[objectIndex].name, std::to_string(itemId).c_str());
         }
         if (objectIndex > 0) {
             objMutex.lock();
-            memcpy(swapObjects, cacheObjects, sizeof(OObject) * objectIndex);
+            int s = sizeof(OObject);
+            memcpy(swapObjects, cacheObjects, s * objectIndex);
             objectCount = objectIndex;
             objMutex.unlock();
+        } else {
+            objectCount = 0;
         }
         // 延时10秒
-        _sleep(10000);
+        _sleep(100);
     }
 }
 
@@ -260,21 +278,21 @@ void surface(Addr baseAddr) {
         ImGui::SetNextWindowPos(ImVec2(render.screenWidth - 410, 10), ImGuiCond_FirstUseEver);
         ImGui::Begin("ADM");
 
-        ImGui::Checkbox("#gameState", &gameState);
-        ImGui::SliderFloat("#offsetX", &fx, 0.0f, 100.0f, "%.2f");
-        ImGui::SliderFloat("#offsetY", &fy, 0.0f, 100.0f, "%.2f");
-        ImGui::SliderFloat("#line", &line, 0.0f, 10.0f, "%.1f");
-        ImGui::SliderFloat("#range", &range, 0.0f, 10000.0f, "%.1f");
-        ImGui::SliderFloat("#anglesX", &vx, -180, 180, "%.6f");
-        ImGui::SliderFloat("#anglesY", &vy, -180, 180, "%.6f");
-        ImGui::SliderInt("#maxObject", &maxObject, 0, 10000);
-        ImGui::SliderInt("#beginObjectIndex", &beginObjectIndex, 0, 10000);
+        ImGui::Checkbox("游戏状态", &gameState);
+        ImGui::SliderFloat("框X偏移", &fx, 0.0f, 100.0f, "%.2f");
+        ImGui::SliderFloat("框Y偏移", &fy, 0.0f, 100.0f, "%.2f");
+        ImGui::SliderFloat("框线宽", &line, 0.0f, 10.0f, "%.1f");
+        ImGui::SliderFloat("显示范围(米)", &range, 0.0f, 10000.0f, "%.1f");
+        ImGui::SliderFloat("水平视角", &vx, -180, 180, "%.6f");
+        ImGui::SliderFloat("垂直视角", &vy, -180, 180, "%.6f");
+        ImGui::SliderInt("最大物品数", &maxObject, 0, 10000);
+        ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, 0, 10000);
 
         if (ImGui::Button("exit")) {
             break;
         }
 
-        if (true) {
+        if (gameState) {
             Addr localPlayerAddr = mem->readA(baseAddr, OFF_LOCAL_PLAYER);
             logDebug("localPlayerAddr: %llX\n", localPlayerAddr);
             OObject localPlayer;
@@ -290,6 +308,9 @@ void surface(Addr baseAddr) {
             //     mem->addScatterReadV(handle, &playersAddrs[i], sizeof(Addr), entityList + (static_cast<Addr>(i) <<
             //     5));
             // }
+            mem->executeReadScatter(handle);
+            mem->closeScatterHandle(handle);
+            handle = mem->createScatter();
 
             localPlayerPosition = localPlayer.playerPosition;
             vx = localPlayer.viewAngles.x;
@@ -324,6 +345,7 @@ void surface(Addr baseAddr) {
                 players[playerIndex].addr = player;
                 playerIndex++;
             }
+
             mem->executeReadScatter(handle);
             mem->closeScatterHandle(handle);
             for (int i = 0; i < playerIndex; i++) {

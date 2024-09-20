@@ -1,16 +1,16 @@
 #pragma once
-// version: v3.0.80.20
+// 游戏版本: v3.0.80.28
 
-/*** r5apex.exe Offset  ***/
+/*** r5apex.exe 偏移  ***/
 #define OFF_GAME_STATE 0x1EC1FC0    // 对局是否进行 bool
 #define OFF_ENTITY_LIST 0x1F61048  // 对象数组(玩家，物品) 大小10000 * 32
 #define OFF_LOCAL_PLAYER 0x24342B8  // 操作玩家指针
 #define OFF_NAME_LIST 0xD425FE0     // 名称字典指针
 #define OFF_MATRIX1 0x2429450       // 4x4矩阵 float[16]
 #define OFF_LEVEL_NAME 0x18356C4     // 对局名称
-/*** r5apex.exe Offset ***/
+/*** r5apex.exe 偏移 ***/
 
-/*** Object、Player Offset ***/
+/*** 玩家，物品 偏移 ***/
 #define OFF_VISIBLE_TIME 0x19A0     // 最后可见时间 float(一直可见数值一直会增大)
 #define OFF_ITEM_ID 0x1568          // 物品id int
 #define OFF_BONES 0xDF8             // 骨骼指针
@@ -33,4 +33,4 @@
 #define OFF_VIEW_ANGLES5 0x2AD0
 #define OFF_VIEW_ANGLES6 0x1EEF
 #define OFF_VIEW_ANGLES7 0x2514
-/*** Object、Player Offset ***/
+/*** 玩家，物品 偏移 ***/
