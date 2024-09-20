@@ -1,13 +1,13 @@
 #pragma once
-// version: v3.0.80.16
+// version: v3.0.80.20
 
 /*** r5apex.exe Offset  ***/
-#define OFF_GAME_STATE 0x1EB73F0    // 对局是否进行 bool,bytes: 40A3899D3A26A000 3C24002F00032E92 4402C6674402CC4C 4402CCCD4402C99A 4402CC4C3F57AD7B 000000004402D5BD 000000403C2399A8 0000000100000000 3D4CCCCD000028DF
-#define OFF_ENTITY_LIST  0x1F22028  // 对象数组(玩家，物品) 大小10000 * 32
-#define OFF_LOCAL_PLAYER 0x23F52B8  // 操作玩家指针
-#define OFF_NAME_LIST 0xD3E54D0     // 名称字典指针
-#define OFF_MATRIX1 0x2422fD0       // 4x4矩阵 float[16]
-#define OFF_LEVEL_NAME 0x17F66C4     // 对局名称
+#define OFF_GAME_STATE 0x1EC1FC0    // 对局是否进行 bool
+#define OFF_ENTITY_LIST 0x1F61048  // 对象数组(玩家，物品) 大小10000 * 32
+#define OFF_LOCAL_PLAYER 0x24342B8  // 操作玩家指针
+#define OFF_NAME_LIST 0xD425FE0     // 名称字典指针
+#define OFF_MATRIX1 0x2429450       // 4x4矩阵 float[16]
+#define OFF_LEVEL_NAME 0x18356C4     // 对局名称
 /*** r5apex.exe Offset ***/
 
 /*** Object、Player Offset ***/

@@ -17,7 +17,12 @@
 
 MemoryToolsBase *mem;
 Render render;
-
+struct EntityAddr {
+    Addr addr;
+    Addr _addr1;
+    Addr _addr2;
+    Addr _addr3;
+};
 // 对象结构体
 struct OObject {
     // 屏幕坐标
@@ -57,15 +62,10 @@ float distanceScal = 0.025;
 // 最大玩家数量
 const int maxPlayer = 100;
 
-/*** 玩家、物资A/B交换缓存 ***/
-OObject mapPlayersCacheA[1100];
-int mapPlayerCacheCountA = 0;
-
-OObject mapPlayersCacheB[1100];
-int mapPlayerCacheCountB = 0;
-
-bool isMapPlayersCacheA = true;
-/*** 玩家、物资A/B交换缓存 ***/
+/*** 玩家、物资 ***/
+OObject mapObjectCache[1100];
+int mapObjectCacheCount = 0;
+/*** 玩家、物资 ***/
 
 
 float vx = 0;
@@ -78,38 +78,21 @@ int maxObject = 10000;
 // 物品列表读取起始下标
 int beginObjectIndex = 2000;
 
-/*** 物资A/B交换缓存 ***/
-OObject objectsA[10000];
-int objectCountA = 0;
+/*** 物资***/
+OObject swapObjects[1000];
+int objectCount = 0;
+/*** 物资***/
 
-OObject objectsB[10000];
-int objectCountB = 0;
-
-bool isObjectA = true;
-/*** 物资A/B交换缓存 ***/
-
-/* 物资地址缓存 */
-Addr objectAddrs[10000];
-OObject tempObjects[10000];
+EntityAddr entityAddrs[10000];
 std::map<Addr, Vector3D> objectsMap;
+std::mutex entityMutex;
+std::mutex objMutex;
+std::mutex webMutex;
 
-
-std::map<int, std::string> mapNames = {{236, "3倍镜"},
-                                       {201, "紫头"},
-                                       {202, "金头"},
-                                       {195, "医疗箱"},
-                                       {280, "涡轮"},
-                                       {246, "10倍镜"},
-                                       {200, "凤凰"},
-                                       {230, "蓝包"},
-                                       {203, "大电"},
-                                       {225, "紫包"},
-                                       {226, "金包"},
-                                       {235, "手雷"},
-                                       {234, "铝热剂"},
-                                       {236, "电弧星"},
-                                       {335, "升级包"},
-
+std::map<int, std::string> mapNames = {
+{236, "3倍镜"},  {201, "紫头"}, {202, "金头"},   {195, "医疗箱"}, {280, "涡轮"},
+{246, "10倍镜"}, {200, "凤凰"}, {230, "蓝包"},   {203, "大电"},   {225, "紫包"},
+{226, "金包"},   {235, "手雷"}, {234, "铝热剂"}, {236, "电弧星"}, {335, "升级包"},
 };
 
 
@@ -144,8 +127,8 @@ void drawPlayer(ImColor color, OObject player, float line_w) {
     x = x - (w / 2.0f);
     // 绘制血条的背景
     draw->AddRectFilled(progressBarPosition,
-                        ImVec2(progressBarPosition.x + progressBarSize.x,
-                               progressBarPosition.y + progressBarSize.y), IM_COL32(200, 200, 200, 255)); // 灰色背景
+                        ImVec2(progressBarPosition.x + progressBarSize.x, progressBarPosition.y + progressBarSize.y),
+                        IM_COL32(200, 200, 200, 255)); // 灰色背景
     // 计算血条的宽度
     float progress = player.health / 100.0F;
     float progressWidth = progressBarSize.x * progress;
@@ -170,62 +153,70 @@ void drawPlayer(ImColor color, OObject player, float line_w) {
 }
 
 /**
-* 物品读取线程
-*/
-void objTest() {
+ * 对象地址数组读取线程
+ */
+void entityAddrsRead() {
     const Addr baseAddr = mem->getBaseAddr();
     Addr entityList = baseAddr + OFF_ENTITY_LIST;
     while (isRun) {
+        entityMutex.lock();
+        mem->readV(entityAddrs, sizeof(EntityAddr) * 10000, entityList);
+        entityMutex.unlock();
+        _sleep(1000);
+    }
+}
+
+/**
+ * 物品读取线程
+ */
+void objTest() {
+    EntityAddr objectAddrs[10000];
+    OObject cacheObjects[1000];
+    while (isRun) {
+        entityMutex.lock();
+        int count = maxObject - beginObjectIndex;
+        memcpy(objectAddrs, entityAddrs, sizeof(EntityAddr) * count);
+        entityMutex.unlock();
         Handle handle = mem->createScatter();
-        for (int i = beginObjectIndex; i < maxObject; i++) {
-            mem->addScatterReadV(handle, &objectAddrs[i], sizeof(Addr), entityList + (static_cast<Addr>(i) << 5));
-        }
         mem->executeReadScatter(handle);
         mem->closeScatterHandle(handle);
         int objectIndex = 0;
-        for (int i = beginObjectIndex; i < maxObject; i++) {
-            Addr object = objectAddrs[i];
+        for (int i = 0; i < count; i++) {
+            Addr object = objectAddrs[i].addr;
             int itemId = mem->readI(object, OFF_ITEM_ID);
             if (itemId < 200 || itemId > 300 || !mapNames.contains(itemId)) {
                 continue;
             }
             // 物品坐标
-            mem->readV(&tempObjects[objectIndex].playerPosition, sizeof(Vector3D), object,OFF_ORIGIN);
+            mem->readV(&cacheObjects[objectIndex].playerPosition, sizeof(Vector3D), object, OFF_ORIGIN);
+            if (cacheObjects[objectIndex].playerPosition.isZero()) {
+                continue;
+            }
             // 超出范围的物品跳过
-            float dis = computeDistance(localPlayerPosition, tempObjects[objectIndex].playerPosition) * distanceScal;
+            float dis = computeDistance(localPlayerPosition, cacheObjects[objectIndex].playerPosition) * distanceScal;
             if (dis > 200) {
                 continue;
             }
             std::string str = std::to_string(itemId);
-            tempObjects[objectIndex].isPlayer = false;
-            tempObjects[objectIndex].itemId = itemId;
-            tempObjects[objectIndex].distance = 10;
-            strcpy(tempObjects[objectIndex].name, mapNames[itemId].c_str());
-            // strcpy(tempObjects[objectIndex].name, std::to_string(itemId).c_str());
-            if (objectIndex >= 10000) {
+            cacheObjects[objectIndex].isPlayer = false;
+            cacheObjects[objectIndex].itemId = itemId;
+            cacheObjects[objectIndex].distance = 10;
+            strcpy(cacheObjects[objectIndex].name, mapNames[itemId].c_str());
+            objectIndex++;
+            if (objectIndex >= 1000) {
                 break;
             }
-            objectIndex++;
+            // strcpy(tempObjects[objectIndex].name, std::to_string(itemId).c_str());
         }
         if (objectIndex > 0) {
-            // objMtx.lock();
-            if (isObjectA) {
-                memcpy(objectsB, tempObjects, sizeof(OObject) * objectIndex);
-                objectCountB = objectIndex;
-            } else {
-                memcpy(objectsA, tempObjects, sizeof(OObject) * objectIndex);
-                objectCountA = objectIndex;
-            }
-            isObjectA = !isObjectA;
-            // objMtx.unlock();
-        } else {
-            objectCountA = 0;
-            objectCountB = 0;
+            objMutex.lock();
+            memcpy(swapObjects, cacheObjects, sizeof(OObject) * objectIndex);
+            objectCount = objectIndex;
+            objMutex.unlock();
         }
         // 延时10秒
         _sleep(10000);
     }
-
 }
 
 void surface(Addr baseAddr) {
@@ -236,14 +227,27 @@ void surface(Addr baseAddr) {
     float line = 1;
     float range = 300;
     float matrix[16];
-    Addr playersAddrs[maxPlayer] = {0};
+    // Addr playersAddrs[maxPlayer] = {0};
     float lastVisTimes[maxPlayer] = {0};
     OObject players[maxPlayer];
+    EntityAddr playerAddrs[maxPlayer];
+    OObject cacheObjects[1000];
+    int cacheObjectCount = 0;
 
     int playerCount = 0;
     int playerIndex = 0;
 
+
     while (true) {
+        entityMutex.lock();
+        memcpy(playerAddrs, entityAddrs, sizeof(EntityAddr) * maxPlayer);
+        entityMutex.unlock();
+
+        objMutex.lock();
+        memcpy(cacheObjects, swapObjects, sizeof(OObject) * objectCount);
+        cacheObjectCount = objectCount;
+        objMutex.unlock();
+
         render.drawBegin();
         bool gameState = mem->readB(baseAddr, OFF_GAME_STATE);
 
@@ -276,30 +280,25 @@ void surface(Addr baseAddr) {
             OObject localPlayer;
             localPlayer.isPlayer = true;
             Handle handle = mem->createScatter();
-            mem->addScatterReadV(handle, &localPlayer.playerPosition, sizeof(Vector3D), localPlayerAddr,
-                                 OFF_ORIGIN);
+            mem->addScatterReadV(handle, &localPlayer.playerPosition, sizeof(Vector3D), localPlayerAddr, OFF_ORIGIN);
             mem->addScatterReadV(handle, &localPlayer.teamId, sizeof(int), localPlayerAddr, OFF_TEAM);
-            mem->addScatterReadV(handle, &localPlayer.nameIndex, sizeof(int), localPlayerAddr,
-                                 OFF_INDEX_IN_NAMELIST);
+            mem->addScatterReadV(handle, &localPlayer.nameIndex, sizeof(int), localPlayerAddr, OFF_INDEX_IN_NAMELIST);
             mem->addScatterReadV(handle, &localPlayer.itemId, sizeof(int), localPlayerAddr, OFF_ITEM_ID);
-            mem->addScatterReadV(handle, &localPlayer.viewAngles, sizeof(Vector2D), localPlayerAddr,
-                                 OFF_VIEW_ANGLES5);
-            Addr entityList = baseAddr + OFF_ENTITY_LIST;
-            for (int i = 0; i < maxPlayer; i++) {
-                //玩家地址读取
-                mem->addScatterReadV(handle, &playersAddrs[i], sizeof(Addr),
-                                     entityList + (static_cast<Addr>(i) << 5));
-            }
-            mem->executeReadScatter(handle);
-            mem->closeScatterHandle(handle);
+            mem->addScatterReadV(handle, &localPlayer.viewAngles, sizeof(Vector2D), localPlayerAddr, OFF_VIEW_ANGLES5);
+            // for (int i = 0; i < maxPlayer; i++) {
+            //     // 玩家地址读取
+            //     mem->addScatterReadV(handle, &playersAddrs[i], sizeof(Addr), entityList + (static_cast<Addr>(i) <<
+            //     5));
+            // }
+
             localPlayerPosition = localPlayer.playerPosition;
             vx = localPlayer.viewAngles.x;
             vy = localPlayer.viewAngles.y;
 
             players[playerIndex++] = localPlayer;
-            handle = mem->createScatter();
+
             for (int i = 0; i < maxPlayer; i++) {
-                Addr player = playersAddrs[i];
+                Addr player = playerAddrs[i].addr;
                 if (!MemoryToolsBase::isAddrValid(player)) {
                     continue;
                 }
@@ -315,16 +314,13 @@ void surface(Addr baseAddr) {
                                      OFF_VIEW_ANGLES1);
                 mem->addScatterReadV(handle, &players[playerIndex].lastVisTime, sizeof(float), player,
                                      OFF_VISIBLE_TIME);
-                mem->addScatterReadV(handle, &players[playerIndex].lifeState, sizeof(int), player,
-                                     OFF_LIFE_STATE);
+                mem->addScatterReadV(handle, &players[playerIndex].lifeState, sizeof(int), player, OFF_LIFE_STATE);
                 mem->addScatterReadV(handle, &players[playerIndex].nameIndex, sizeof(int), player,
                                      OFF_INDEX_IN_NAMELIST);
-                mem->addScatterReadV(handle, &players[playerIndex].health, sizeof(int), player,
-                                     OFF_HEALTH);
+                mem->addScatterReadV(handle, &players[playerIndex].health, sizeof(int), player, OFF_HEALTH);
                 mem->addScatterReadV(handle, players[playerIndex].shieldHealth,
                                      sizeof(players[playerIndex].shieldHealth), player, OFF_SHIELD);
                 players[playerIndex].isPlayer = true;
-
                 players[playerIndex].addr = player;
                 playerIndex++;
             }
@@ -353,17 +349,18 @@ void surface(Addr baseAddr) {
                     mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
                     player.distance = dis;
                     // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
-                    player.health = static_cast<int>((static_cast<float>(player.health + player.shieldHealth[0]) / (
-                        100.0F + player.shieldHealth[1])) * 100.0F);
+                    player.health = static_cast<int>(
+                    (static_cast<float>(player.health + player.shieldHealth[0]) / (100.0F + player.shieldHealth[1])) *
+                    100.0F);
                     if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight,
                                        player.screenPosition)) {
                         break;
                     }
                     // 读取头部骨骼坐标
-                    Vector3D HeadPosition = readBonePosition(mem, player.addr, player.playerPosition, 0);
-                    VectorRect hs;
-                    worldToScreen(HeadPosition, matrix, render.screenWidth, render.screenHeight, hs);
-                    player.screenPosition.h = abs(abs(hs.y) - abs(player.screenPosition.y));
+                    Vector3D headPosition = readBonePosition(mem, player.addr, player.playerPosition, 0);
+                    VectorRect headScreenPosition;
+                    worldToScreen(headPosition, matrix, render.screenWidth, render.screenHeight, headScreenPosition);
+                    player.screenPosition.h = abs(abs(headScreenPosition.y) - abs(player.screenPosition.y));
                     player.screenPosition.w = player.screenPosition.h / 2.0f;
                     player.screenPosition.x += fx;
                     player.screenPosition.y += fy - player.screenPosition.h;
@@ -380,37 +377,27 @@ void surface(Addr baseAddr) {
                     playerCount++;
                 } while (false);
             }
-            OObject *objects;
-            int objectCount;
-            if (isObjectA) {
-                objects = objectsA;
-                objectCount = objectCountA;
-            } else {
-                objects = objectsB;
-                objectCount = objectCountB;
-            }
+
             // 读取矩阵
             mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
-            for (int j = 0; j < objectCount; j++) {
-                if (!worldToScreen(objects[j].playerPosition, matrix, render.screenWidth, render.screenHeight,
-                                   objects[j].screenPosition)) {
+            for (int j = 0; j < cacheObjectCount; j++) {
+                if (!worldToScreen(cacheObjects[j].playerPosition, matrix, render.screenWidth, render.screenHeight,
+                                   cacheObjects[j].screenPosition)) {
                     continue;
                 }
-                float dis = computeDistance(localPlayerPosition, objects[j].playerPosition) * distanceScal;
-                objects[j].distance = dis;
-                drawObject(IM_COL32(255, 255, 255, 255), objects[j]);
+                float dis = computeDistance(localPlayerPosition, cacheObjects[j].playerPosition) * distanceScal;
+                cacheObjects[j].distance = dis;
+                drawObject(IM_COL32(255, 255, 255, 255), cacheObjects[j]);
             }
-            // 玩家和物品数据都复制到缓存数组，给web使用
-            if (isMapPlayersCacheA) {
-                memcpy(mapPlayersCacheB, players, sizeof(OObject) * playerIndex);
-                memcpy(mapPlayersCacheB + sizeof(OObject) * playerIndex, objects, sizeof(OObject) * objectCount);
-                mapPlayerCacheCountB = playerIndex;
-            } else {
-                memcpy(mapPlayersCacheA, players, sizeof(OObject) * playerIndex);
-                memcpy(mapPlayersCacheA + sizeof(OObject) * playerIndex, objects, sizeof(OObject) * objectCount);
-                mapPlayerCacheCountA = playerIndex;
+            if (objectCount > 0) {
             }
-            isMapPlayersCacheA = !isMapPlayersCacheA;
+            webMutex.lock();
+            memcpy(mapObjectCache, players, sizeof(OObject) * playerIndex);
+            if (cacheObjectCount > 0) {
+                memcpy(&mapObjectCache[playerIndex], cacheObjects, sizeof(OObject) * cacheObjectCount);
+            }
+            mapObjectCacheCount = playerIndex + cacheObjectCount;
+            webMutex.unlock();
             if (playerCount == 0) {
                 gameClear();
             }
@@ -421,15 +408,15 @@ void surface(Addr baseAddr) {
     }
 }
 
-
 using namespace hv;
 WebSocketServer server;
 WebSocketService wws;
 HttpService http;
+std::map<WebSocketChannel *, WebSocketChannel *> channels;
 
 /**
-* 网页地图分享功能
-*/
+ * 网页地图分享功能
+ */
 class MyContext {
 public:
     MyContext() {
@@ -442,25 +429,15 @@ public:
     }
 
     static int handleMessage(const std::string &msg, enum ws_opcode opcode) {
-        logDebug("onmessage(type=%s len=%d): %.*s\n", opcode == WS_OPCODE_TEXT ? "text" : "binary", (int)msg.size(), (
-                int)msg
-            .size(), msg.data());
+        logDebug("onmessage(type=%s len=%d): %.*s\n", opcode == WS_OPCODE_TEXT ? "text" : "binary", (int)msg.size(),
+                 (int)msg.size(), msg.data());
         return msg.size();
     }
 
-    static void run(const WebSocketChannelPtr &channel) {
-        OObject *objects;
-        int objectCount;
-        if (isMapPlayersCacheA) {
-            objects = mapPlayersCacheA;
-            objectCount = mapPlayerCacheCountA;
-        } else {
-            objects = mapPlayersCacheB;
-            objectCount = mapPlayerCacheCountB;
-        }
+    static void run(WebSocketChannel *channel, OObject *mapObject, int mapObjectCount) {
         Json data;
-        for (int i = 0; i < objectCount; i++) {
-            OObject &p = objects[i];
+        for (int i = 0; i < mapObjectCount; i++) {
+            OObject &p = mapObject[i];
             Json objectJson;
             if (p.isPlayer) {
                 objectJson["x"] = p.playerPosition.x;
@@ -504,27 +481,45 @@ public:
     TimerID timerID;
 };
 
+void sendWebsocket() {
+    OObject mapObject[1100];
+    int mapObjectCount = 0;
+    while (isRun) {
+        if (mapObjectCacheCount > 0) {
+            webMutex.lock();
+            memcpy(mapObject, mapObjectCache, sizeof(OObject) * mapObjectCacheCount);
+            webMutex.unlock();
+        }
+        mapObjectCount = mapObjectCacheCount;
+        for (auto &channel : channels) {
+            if (channel.second->isConnected() && channel.second->isWriteComplete()) {
+                MyContext::run(channel.second, mapObject, mapObjectCount);
+            }
+        }
+        _sleep(100);
+    }
+}
 void websocketServer() {
     int port = 6888;
-    http.GET("/ping", [](const HttpContextPtr &ctx) {
-        return ctx->send("pong", TEXT_HTML);
-    });
-    http.Static("/","webMap");
+    http.GET("/ping", [](const HttpContextPtr &ctx) { return ctx->send("pong", TEXT_HTML); });
+    http.Static("/", "webMap");
     wws.onopen = [](const WebSocketChannelPtr &channel, const HttpRequestPtr &req) {
         logInfo("onopen: GET %s\n", req->Path().c_str());
         auto ctx = channel->newContextPtr<MyContext>();
+        channels[channel.get()] = (channel.get());
         // send(time) every 100ms
-        ctx->timerID = setInterval(100, [channel](TimerID id) {
-            if (channel->isConnected() && channel->isWriteComplete()) {
-                MyContext::run(channel);
-            }
-        });
+        // ctx->timerID = setInterval(100, [channel](TimerID id) {
+        //     if (channel->isConnected() && channel->isWriteComplete()) {
+        //         MyContext::run(channel);
+        //     }
+        // });
     };
     wws.onmessage = [](const WebSocketChannelPtr &channel, const std::string &msg) {
         auto ctx = channel->getContextPtr<MyContext>();
         ctx->handleMessage(msg, channel->opcode);
     };
     wws.onclose = [](const WebSocketChannelPtr &channel) {
+        channels.erase(channel.get());
         logInfo("onclose\n");
         auto ctx = channel->getContextPtr<MyContext>();
         if (ctx->timerID != INVALID_TIMER_ID) {
@@ -538,6 +533,8 @@ void websocketServer() {
     server.registerWebSocketService(&wws);
     server.start();
     logInfo("---- WebSocket Server initialized ----\n");
+    std::thread sendWebsocketTh(sendWebsocket);
+    sendWebsocketTh.detach();
 }
 
 void plugin() {
@@ -549,6 +546,10 @@ void plugin() {
     // 物品读取线程
     std::thread th(objTest);
     th.detach();
+
+    std::thread eh(entityAddrsRead);
+    eh.detach();
+
     render.initImGui(L"ADM");
     surface(baseAddr);
     render.destroyImGui();
@@ -566,7 +567,7 @@ int main() {
     }
     // 读取Dump的内存
     // mem = new DumpMemoryTools();
-    // if (!mem->init("C:\\Users\\user\\Desktop\\test\\apex7\\dict.txt")) {
+    // if (!mem->init("C:\\Users\\user\\Desktop\\test\\apex8\\dict.txt")) {
     //     logInfo("Failed to initialized Dump\n");
     // } else {
     //     logInfo("Dump initialized\n");

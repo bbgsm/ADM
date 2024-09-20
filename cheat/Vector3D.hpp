@@ -33,4 +33,8 @@ struct Vector3D {
     Vector3D operator-(const Vector3D &v) const {
         return Vector3D(x - v.x, y - v.y, z - v.z);
     }
+
+    bool isZero() const {
+        return x == 0.0f && y == 0.0f && z == 0.0f;
+    }
 };

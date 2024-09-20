@@ -71,7 +71,7 @@ void surface() {
 
         ImGui::SetNextWindowSize(ImVec2(400, 430), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(ImVec2(render.screenWidth - 410, 10), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Settings");
+        ImGui::Begin("testGui");
         ImGui::Text("AimAssist Settings");
 
         ImGui::Text("Sticky Aim:");
