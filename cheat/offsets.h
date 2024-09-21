@@ -1,5 +1,5 @@
 #pragma once
-// 游戏版本: v3.0.80.28
+// 游戏版本: v3.0.80.27 这鸟游戏版本，玩我呢，左右横跳，一天版本来回变更几回
 
 /*** r5apex.exe 偏移  ***/
 #define OFF_GAME_STATE 0x1EC1FC0    // 对局是否进行 bool
