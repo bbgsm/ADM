@@ -18,10 +18,10 @@
 MemoryToolsBase *mem;
 Render render;
 struct EntityAddr {
-    Addr addr;
-    Addr _addr1;
-    Addr _addr2;
-    Addr _addr3;
+    Addr addr = 0;
+    Addr _addr1 = 0;
+    Addr _addr2 = 0;
+    Addr _addr3 = 0;
 };
 // 对象结构体
 struct OObject {
@@ -83,11 +83,12 @@ OObject swapObjects[1000];
 int objectCount = 0;
 /*** 物资***/
 
-EntityAddr entityAddrs[10000];
+EntityAddr *entityAddrs = new EntityAddr[10000];
 std::map<Addr, Vector3D> objectsMap;
 std::mutex entityMutex;
 std::mutex objMutex;
 std::mutex webMutex;
+
 
 std::map<int, std::string> mapNames = {
 {236, "3倍镜"},  {201, "紫头"},   {202, "金头"},   {195, "医疗箱"},   {280, "涡轮"},         {240, "10倍镜"},
@@ -102,9 +103,11 @@ void drawObject(ImColor color, const OObject &player) {
     float y = player.screenPosition.y;
     float w = player.screenPosition.w;
     float h = player.screenPosition.h;
+
     if (x <= 0 || x > render.screenWidth || y <= 0 || y > render.screenHeight) {
         return;
     }
+
     ImDrawList *draw = ImGui::GetForegroundDrawList();
     std::string nameText = player.name;
     nameText += "(" + std::to_string(player.distance) + ")";
@@ -117,40 +120,49 @@ void drawPlayer(ImColor color, const OObject &player, float line_w) {
     float y = player.screenPosition.y;
     float w = player.screenPosition.w;
     float h = player.screenPosition.h;
+
     if (x <= 0 || x > render.screenWidth || y <= 0 || y > render.screenHeight) {
         return;
     }
+
     ImDrawList *draw = ImGui::GetForegroundDrawList();
-    float ww = w > 100 ? w : 100;
-    // 定义血条的尺寸和位置
+    float ww = (std::max)(w, 100.0F);
     ImVec2 progressBarSize(ww, 10);
     ImVec2 progressBarPosition{x - progressBarSize.x / 2, y - 12};
-    x = x - (w / 2.0f);
-    // 绘制血条的背景
-    draw->AddRectFilled(progressBarPosition,
-                        ImVec2(progressBarPosition.x + progressBarSize.x, progressBarPosition.y + progressBarSize.y),
-                        IM_COL32(200, 200, 200, 255)); // 灰色背景
-    // 计算血条的宽度
-    float progress = player.health / 100.0F;
-    float progressWidth = progressBarSize.x * progress;
-    // 血条填充部分
-    ImVec2 progressStart = progressBarPosition;
-    ImVec2 progressEnd = ImVec2(progressStart.x + progressWidth, progressBarPosition.y + progressBarSize.y);
-    draw->AddRectFilled(progressStart, progressEnd, IM_COL32(0, 255, 0, 255)); // 绿色填充
-    // 血条边框
-    draw->AddRect(progressBarPosition,
-                  ImVec2(progressBarPosition.x + progressBarSize.x, progressBarPosition.y + progressBarSize.y),
-                  IM_COL32(0, 0, 0, 255), 0, 15); // 黑色边框
-    draw->AddLine(ImVec2(x, y), ImVec2(x + w, y), color, line_w);
-    draw->AddLine(ImVec2(x, y), ImVec2(x, y + h), color, line_w);
-    draw->AddLine(ImVec2(x + w, y), ImVec2(x + w, y + h), color, line_w);
-    draw->AddLine(ImVec2(x, y + h), ImVec2(x + w, y + h), color, line_w);
-    std::string text = std::to_string(player.distance) + "M team:(" + std::to_string(player.teamId) + ")";
+
+    // 绘制血条背景
+    ImVec2 barEndPos{progressBarPosition.x + progressBarSize.x, progressBarPosition.y + progressBarSize.y};
+    draw->AddRectFilled(progressBarPosition, barEndPos, IM_COL32(200, 200, 200, 255)); // 灰色背景
+
+    // 计算血条填充部分
+    float progressWidth = progressBarSize.x * (player.health / 100.0f);
+    ImVec2 progressEnd{progressBarPosition.x + progressWidth, barEndPos.y};
+    draw->AddRectFilled(progressBarPosition, progressEnd, IM_COL32(0, 255, 0, 255)); // 绿色填充
+
+    // 绘制血条边框
+    draw->AddRect(progressBarPosition, barEndPos, IM_COL32(0, 0, 0, 255), 0, 15); // 黑色边框
+
+    // 调整x坐标以便于绘制矩形框
+    float left = x - (w / 2.0f);
+    float right = left + w;
+    float bottom = y + h;
+
+    // 绘制矩形框
+    draw->AddLine(ImVec2(left, y), ImVec2(right, y), color, line_w);
+    draw->AddLine(ImVec2(left, y), ImVec2(left, bottom), color, line_w);
+    draw->AddLine(ImVec2(right, y), ImVec2(right, bottom), color, line_w);
+    draw->AddLine(ImVec2(left, bottom), ImVec2(right, bottom), color, line_w);
+
+    // 准备显示的文本
+    std::string text = std::to_string(player.distance) + "M team:(" + std::to_string(player.viewAngles.y) + ")";
     std::string nameText = player.name;
+
+    // 计算文本尺寸并绘制
     ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
     ImVec2 nameTextSize = ImGui::CalcTextSize(nameText.c_str());
-    draw->AddText(ImVec2(x + w / 2 - (textSize.x / 2), y + h + 2), IM_COL32(255, 255, 255, 255), text.c_str());
-    draw->AddText(ImVec2(x + w / 2 - (nameTextSize.x / 2), y - 25), IM_COL32(255, 255, 255, 255), nameText.c_str());
+
+    draw->AddText(ImVec2(left + (w - textSize.x) / 2, bottom + 2), IM_COL32(255, 255, 255, 255), text.c_str());
+    draw->AddText(ImVec2(left + (w - nameTextSize.x) / 2, y - 25), IM_COL32(255, 255, 255, 255), nameText.c_str());
 }
 
 /**
@@ -233,7 +245,7 @@ void objTest() {
             objectCount = 0;
         }
         // 延时10秒
-        _sleep(100);
+        _sleep(10000);
     }
 }
 
@@ -254,7 +266,6 @@ void surface(Addr baseAddr) {
 
     int playerCount = 0;
     int playerIndex = 0;
-
 
     while (true) {
         entityMutex.lock();
@@ -291,7 +302,6 @@ void surface(Addr baseAddr) {
         if (ImGui::Button("exit")) {
             break;
         }
-
         if (gameState) {
             Addr localPlayerAddr = mem->readA(baseAddr, OFF_LOCAL_PLAYER);
             logDebug("localPlayerAddr: %llX\n", localPlayerAddr);
@@ -303,11 +313,7 @@ void surface(Addr baseAddr) {
             mem->addScatterReadV(handle, &localPlayer.nameIndex, sizeof(int), localPlayerAddr, OFF_INDEX_IN_NAMELIST);
             mem->addScatterReadV(handle, &localPlayer.itemId, sizeof(int), localPlayerAddr, OFF_ITEM_ID);
             mem->addScatterReadV(handle, &localPlayer.viewAngles, sizeof(Vector2D), localPlayerAddr, OFF_VIEW_ANGLES5);
-            // for (int i = 0; i < maxPlayer; i++) {
-            //     // 玩家地址读取
-            //     mem->addScatterReadV(handle, &playersAddrs[i], sizeof(Addr), entityList + (static_cast<Addr>(i) <<
-            //     5));
-            // }
+
             mem->executeReadScatter(handle);
             mem->closeScatterHandle(handle);
             handle = mem->createScatter();
@@ -315,7 +321,7 @@ void surface(Addr baseAddr) {
             localPlayerPosition = localPlayer.playerPosition;
             vx = localPlayer.viewAngles.x;
             vy = localPlayer.viewAngles.y;
-
+            localPlayer.health = 100;
             players[playerIndex++] = localPlayer;
 
             for (int i = 0; i < maxPlayer; i++) {
@@ -345,7 +351,6 @@ void surface(Addr baseAddr) {
                 players[playerIndex].addr = player;
                 playerIndex++;
             }
-
             mem->executeReadScatter(handle);
             mem->closeScatterHandle(handle);
             for (int i = 0; i < playerIndex; i++) {
@@ -372,7 +377,7 @@ void surface(Addr baseAddr) {
                     player.distance = dis;
                     // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
                     player.health = static_cast<int>(
-                    (static_cast<float>(player.health + player.shieldHealth[0]) / (100.0F + player.shieldHealth[1])) *
+                    (static_cast<float>(player.health + player.shieldHealth[0]) / (/* max health */100.0F + player.shieldHealth[1])) *
                     100.0F);
                     if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight,
                                        player.screenPosition)) {
@@ -468,7 +473,8 @@ public:
                 objectJson["teamId"] = p.teamId;
                 objectJson["isPlayer"] = p.isPlayer;
                 objectJson["health"] = p.health;
-                objectJson["direction"] = p.viewAngles.y;
+                objectJson["viewAnglesV"] = p.viewAngles.x;
+                objectJson["viewAnglesH"] = p.viewAngles.y;
                 p.name[31] = '\0';
                 if (strlen(p.name) <= 0) {
                     continue;
@@ -573,6 +579,8 @@ void plugin() {
     eh.detach();
 
     render.initImGui(L"ADM");
+    // 设置显示屏幕下标(多屏幕使用)
+    render.switchMonitor(0);
     surface(baseAddr);
     render.destroyImGui();
     isRun = false;
@@ -596,5 +604,6 @@ int main() {
     // }
     plugin();
     delete mem;
+    delete[] entityAddrs;
     return 0;
 }

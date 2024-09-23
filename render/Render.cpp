@@ -3,10 +3,12 @@
 //
 
 #include "Render.h"
-#include "Font.h"
-#include "imgui_impl_win32.h"
-#include "imgui_impl_dx11.h"
 #include <d3d11.h>
+#include <iostream>
+#include <vector>
+#include "Font.h"
+#include "imgui_impl_dx11.h"
+#include "imgui_impl_win32.h"
 
 HWND hwnd;
 WNDCLASSEXW wc;
@@ -29,6 +31,38 @@ static ID3D11DeviceContext *g_pd3dDeviceContext = nullptr;
 static IDXGISwapChain *g_pSwapChain = nullptr;
 static ID3D11RenderTargetView *g_mainRenderTargetView = nullptr;
 
+struct MonitorInfo {
+    HMONITOR hMonitor;
+    RECT rcMonitor;
+};
+
+std::vector<MonitorInfo> getMonitors() {
+    std::vector<MonitorInfo> monitors;
+    EnumDisplayMonitors(nullptr, nullptr, [](HMONITOR hMonitor, HDC, LPRECT lprcMonitor, LPARAM dwData) -> BOOL {
+        auto* pMonitors = reinterpret_cast<std::vector<MonitorInfo>*>(dwData);
+        MONITORINFO mi = { sizeof(mi) };
+        if (GetMonitorInfo(hMonitor, &mi)) {
+            pMonitors->push_back({ hMonitor, mi.rcMonitor });
+        }
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&monitors));
+    return monitors;
+}
+
+void Render::switchMonitor(int monitorIndex) {
+    auto monitors = getMonitors();
+    if (monitorIndex >= 0 && monitorIndex < monitors.size()) {
+        const RECT &rect = monitors[monitorIndex].rcMonitor;
+        screenWidth = rect.right - rect.left;
+        screenHeight = rect.bottom - rect.top;
+        SetWindowPos(hwnd, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
+                     SWP_SHOWWINDOW);
+    } else {
+        std::cerr << "Invalid monitor index." << std::endl;
+        screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    }
+}
 
 // Helper functions
 bool CreateDeviceD3D(HWND hWnd) {
@@ -153,7 +187,7 @@ void Render::destroyImGui() {
 }
 
 void Render::drawBegin() {
-    if (hwnd != NULL) {
+    if (hwnd != nullptr) {
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     }
     MSG msg;

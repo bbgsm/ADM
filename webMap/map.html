@@ -42,7 +42,7 @@
             transform: translateX(-50%); /* 使线条水平居中 */
         }
 
-        .clearCache, #scale, #range, #nameInput, #displayTeamCheckBox {
+        .clearCache, #scale, #range, #nameInput, #displayTeamCheckBox, #displayObjectCheckBox {
             margin-top: 10px;
         }
     </style>
@@ -68,13 +68,18 @@
 
 <div>
     <label for="range">显示范围</label>
-    <input type="range" min="0" max="2000" value="500" id="range">
+    <input type="range" min="0" max="360" value="500" id="range">
     <span id="rangeValueView">500</span>
 </div>
 
 <div>
     <label for="displayTeamCheckBox">显示队友</label>
     <input type="checkbox" id="displayTeamCheckBox">
+</div>
+
+<div>
+    <label for="displayObjectCheckBox">显示物资</label>
+    <input type="checkbox" id="displayObjectCheckBox">
 </div>
 
 <div>
@@ -86,26 +91,34 @@
     var scale = 50.0;
     var range = 500;
     var displayTeam = true;
+    var displayObject = true;
     var rv = 0;
     const canvas = document.getElementById('mapCanvas');
     const ctx = canvas.getContext('2d');
 
     const colors = [
-        "#FF0000", // 红色
+        "#FF9633", // 桃色
         "#00FF00", // 绿色
+        "#33FFD1", // 水绿色
         "#0000FF", // 蓝色
         "#FFFF00", // 黄色
-        "#00FFFF", // 青色
         "#FF00FF", // 紫色
         "#FFFFFF", // 白色
         "#8A2BE2", // 蓝紫色
         "#FFA500", // 橙色
-        "#FFC0CB"  // 粉色
+        "#FFC0CB", // 粉色
+        "#00FFFF", // 青色 队友颜色
+        "#FF0000", // 红色 警告颜色
     ];
 
     document.getElementById('displayTeamCheckBox').onchange = function () {
         localStorage.setItem('displayTeam', this.checked);
         displayTeam = this.checked;
+    };
+
+    document.getElementById('displayObjectCheckBox').onchange = function () {
+        localStorage.setItem('displayObject', this.checked);
+        displayObject = this.checked;
     };
 
     document.getElementById('nameInput').oninput = function () {
@@ -148,6 +161,15 @@
         } else {
             document.getElementById('displayTeamCheckBox').checked = true;
         }
+        const displayObjectValue = localStorage.getItem('displayObject');
+        if (displayObjectValue !== null) {
+            document.getElementById('displayObjectCheckBox').checked = displayTeamValue === 'true';
+            displayTeam = displayObjectValue === 'true';
+        } else {
+            document.getElementById('displayObjectCheckBox').checked = true;
+        }
+
+
     };
 
     function distance(a, b) {
@@ -159,18 +181,28 @@
         location.reload();
     }
 
-    function rotate(x1, y1, angle) {
-        const mapPosition = {};
-        mapPosition.x = x1 * Math.cos(angle) - y1 * Math.sin(angle);
-        mapPosition.y = x1 * Math.sin(angle) + y1 * Math.cos(angle);
-        return mapPosition;
+    // 全局的角度偏移量，可以根据实际情况进行调整
+    var HORIZONTAL_OFFSET = 0; // 水平方向的角度偏移量
+    var VERTICAL_OFFSET = 0; // 垂直方向的角度偏移量
+
+
+    function normalizeAngle(angle) {
+        angle = angle % 360;
+        if (angle > 180) {
+            angle -= 360;
+        } else if (angle < -180) {
+            angle += 360;
+        }
+        return angle;
     }
 
-    function drawTriangle(x, y, size, direction, fillStyle) {
+    function drawTriangle(x, y, size, viewAnglesH, fillStyle) {
+        const normalizedAngle = normalizeAngle(viewAnglesH + HORIZONTAL_OFFSET);
         ctx.save();
 
         ctx.translate(x, y);
-        ctx.rotate(direction / 360.0 * Math.PI * 2.0);
+        const rad = normalizedAngle / 360.0 * Math.PI * 2.0;
+        ctx.rotate(rad);
 
         ctx.beginPath();
         ctx.moveTo(0, -size * 1.5); // 顶点
@@ -184,14 +216,42 @@
         ctx.restore();
     }
 
-    function drawTextWithBackground(x, y, text) {
+    function drawTextWithBackground(x, y, color, text) {
         const textWidth = ctx.measureText(text).width;
         const textHeight = 14;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillStyle = color;
         ctx.fillRect(x - textWidth / 2 - 2, y + 15, textWidth + 4, textHeight + 4);
         ctx.fillStyle = 'white';
         ctx.font = '14px Arial';
         ctx.fillText(text, x - textWidth / 2, y + 15 + textHeight);
+    }
+
+    function rotate(a, b, viewAngles) {
+        const angle = viewAngles / 360.0 * Math.PI * 2.0
+        const mapPosition = {};
+        const relativeX = (a.y - b.y) / scale;
+        const relativeY = (a.x - b.x) / scale;
+        mapPosition.x = relativeX * Math.cos(angle) - relativeY * Math.sin(angle);
+        mapPosition.y = relativeX * Math.sin(angle) + relativeY * Math.cos(angle);
+        return mapPosition;
+    }
+
+    function isPointingTo(a, b, tolerance = 10) {
+        // 计算从 a 到 b 的向量
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dz = b.z - a.z;
+
+        // 计算水平和垂直角度
+        const horizontalAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const verticalAngle = Math.atan2(dz, distance) * (180 / Math.PI);
+
+        // 检查视角是否在指定容差范围内
+        const isHorizontalAligned = Math.abs(horizontalAngle - a.viewAnglesH) <= tolerance;
+        const isVerticalAligned = Math.abs(verticalAngle - a.viewAnglesV + 20) <= 30; // 垂直视角因为坐标问题不准，先允许误差为30度
+
+        return isHorizontalAligned && isVerticalAligned;
     }
 
     function drawPlayers(players) {
@@ -202,10 +262,6 @@
 
         let localPlayer = players.find(player => player.isPlayer && player.name === nameValue);
         if (!localPlayer) return;
-
-        if (localPlayer.direction < 0.0) {
-            localPlayer.direction += 360.0;
-        }
 
         players.forEach(player => {
             if (!displayTeam && localPlayer.teamId === player.teamId) {
@@ -218,16 +274,11 @@
             if (player.isPlayer && player.health <= 0) {
                 return;
             }
-            if (player.direction < 0.0) {
-                player.direction += 360.0;
-            }
             let mapPosition = rotate(
-                (localPlayer.y - player.y) / scale,
-                (localPlayer.x - player.x) / scale,
-                localPlayer.direction / 360.0 * Math.PI * 2.0
+                localPlayer, player, localPlayer.viewAnglesH
             );
             let x = mapPosition.x + centerX;
-            let y = mapPosition.y + centerY;
+            let y = mapPosition.y + centerY - 10;
             if (x <= 0) {
                 x = 0;
             } else if (x >= 500) {
@@ -239,26 +290,28 @@
                 y = 500
             }
             if (player.isPlayer) {
-               /* let playerColor = displayTeam && localPlayer.teamId === player.teamId ? 'cyan' : colors[player.teamId % 10];
-                if (Math.abs(player.direction - localPlayer.direction) < 10) {
-                    playerColor = 'red'; // 当player的direction指向localPlayer时，设定player为红色
-                }*/
-                // ctx.globalCompositeOperation = 'destination-over';
-                let angleToLocalPlayer = Math.atan2(localPlayer.y - player.y, localPlayer.x - player.x) * 180 / Math.PI;
-                angleToLocalPlayer = (angleToLocalPlayer + 360) % 360; // Normalize the angle
-                let angleDifference = Math.abs(player.direction - angleToLocalPlayer);
-
-                if (angleDifference <= 10 || angleDifference >= 350) {
-                    playerColor = 'red'; // If the player is pointing towards the localPlayer
+                if (isPointingTo(player, localPlayer)) {
+                    playerColor = colors[11];
                 } else {
-                    playerColor = displayTeam && localPlayer.teamId === player.teamId ? 'cyan' : colors[player.teamId % 10];
+                    if (isPointingTo(localPlayer, player)) {
+                        playerColor = 'rgba(255, 200, 0, 0.8)';
+                    } else {
+                        playerColor = displayTeam && localPlayer.teamId === player.teamId ? colors[10] : colors[player.teamId % 10];
+                    }
                 }
-                drawTriangle(x, y, 8, player.direction + localPlayer.direction, playerColor);
-                const text =  " (" + parseInt (( player.z - localPlayer.z ) * 0.025)+ "M)";
-                drawTextWithBackground(x, y, text);
+                drawTriangle(x, y, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
+                const text = " (" + parseInt((player.z - localPlayer.z) * 0.025) + "M)";
+                drawTextWithBackground(x, y, 'rgba(0, 0, 0, 0.7)', text);
             } else {
                 const playerName = player.name + " (" + dis + "M)";
-                drawTextWithBackground(x, y, playerName);
+                let color;
+                if (isPointingTo(localPlayer, player)) {
+                    color = 'rgba(0, 200, 0, 0.6)';
+                } else {
+                    color = 'rgba(0, 0, 0, 0.7)';
+
+                }
+                drawTextWithBackground(x, y, color, playerName);
             }
         });
     }

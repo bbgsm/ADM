@@ -25,12 +25,12 @@
 #define OFF_HEALTH 0x0328           // 血量   int
 #define OFF_LIFE_STATE 0x0690       // 存活状态 int
 
-#define OFF_VIEW_ANGLES 0x2520      // 视角水平垂直角度 xy float
-#define OFF_VIEW_ANGLES1 0x2230
-#define OFF_VIEW_ANGLES2 0x3954
-#define OFF_VIEW_ANGLES3 0x36E4
-#define OFF_VIEW_ANGLES4 0x327C
-#define OFF_VIEW_ANGLES5 0x2AD0
-#define OFF_VIEW_ANGLES6 0x1EEF
-#define OFF_VIEW_ANGLES7 0x2514
+#define OFF_VIEW_ANGLES  0x2520   // 视角水平垂直角度 xy float 0 到 360
+#define OFF_VIEW_ANGLES1 0x2230   // -180 到 180
+#define OFF_VIEW_ANGLES2 0x39B4   // -180 到 180
+#define OFF_VIEW_ANGLES3 0x36E4 + 60 // -180 到 180
+#define OFF_VIEW_ANGLES4 0x327C + 28 // -180 到 180
+#define OFF_VIEW_ANGLES5 0x2AD0 // -180 到 180
+#define OFF_VIEW_ANGLES6 0x1EEF // -180 到 180
+#define OFF_VIEW_ANGLES7 0x2510 // -180 到 180
 /*** 玩家，物品 偏移 ***/

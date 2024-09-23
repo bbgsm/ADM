@@ -61,7 +61,31 @@ add_executable(testGui
         ${TEST_GUI_SRC_SOURCES}
 )
 
+add_executable(blockScreen
+        blockScreen/main.cpp
+)
+
+add_executable(test
+        test.cpp
+        ${MEMORY_TOOLS_SOURCES}
+        ${RENDER_SOURCES}
+        ${IMGUI_SOURCES}
+        ${HTTPSERVER_SOURCES}
+        ${TOOLS_SOURCES}
+)
+
+target_link_options(blockScreen PRIVATE "/SUBSYSTEM:WINDOWS")
+
+
 target_link_libraries(ADM
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/leechcore.lib"
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/vmm.lib"
+        ws2_32
+        D3D11.lib
+        hv_static
+)
+
+target_link_libraries(test
         "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/leechcore.lib"
         "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/vmm.lib"
         ws2_32

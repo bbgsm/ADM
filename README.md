@@ -19,6 +19,7 @@ Apex Dma 方框、网页地图分享
 #### 本项目编译环境使用 Clion + cmake + vs2022, 在 Clion 的 cmake 配置中选择vs2022编译工具链进行编译
 # 目录
 * [cheat 作弊主目录](cheat)
+* [blockScreen 黑屏背景(融合器背景专用)](blockScreen)
 * [CEPlugin DMA读取整合cheat，方便绘制和CE同时运行在DMA上](CEPlugin)
 * [MemTools 内存工具目录](MemTools)
 * [render imgui绘制工具](render)
