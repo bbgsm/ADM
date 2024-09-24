@@ -3,6 +3,9 @@ project(ADM)
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
+# Build for linux, Only Test, Incomplete
+#add_definitions(-DLINUX)
+
 set(CMAKE_CXX_STANDARD 20)
 # 设置输出路径为项目根目录的out
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/out")
@@ -37,7 +40,6 @@ file(GLOB_RECURSE MEMORY_TOOLS_SOURCES
         "MemTools/MemoryToolsBase.cpp"
         "MemTools/*.h"
 )
-
 
 add_executable(ADM
         ${MEMORY_TOOLS_SOURCES}
@@ -76,26 +78,25 @@ add_executable(test
 
 target_link_options(blockScreen PRIVATE "/SUBSYSTEM:WINDOWS")
 
-
 target_link_libraries(ADM
-        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/leechcore.lib"
-        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/vmm.lib"
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/leechcore.lib"
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/vmm.lib"
         ws2_32
         D3D11.lib
         hv_static
 )
 
 target_link_libraries(test
-        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/leechcore.lib"
-        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/vmm.lib"
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/leechcore.lib"
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/vmm.lib"
         ws2_32
         D3D11.lib
         hv_static
 )
 
 target_link_libraries(CEPlugin
-        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/leechcore.lib"
-        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/vmm.lib"
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/leechcore.lib"
+        "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/vmm.lib"
         ws2_32
         D3D11.lib
         hv_static
@@ -105,16 +106,17 @@ target_link_libraries(testGui
         ws2_32
         D3D11.lib
 )
+
 ########### 文件复制 #############
-# 无论如何设置都获取不到正确的编译输出目录，只能手动拼接剩下的路径
+# 无论如何设置都获取不到正确的编译输出目录，只能手动拼接剩下的路径(Release/Debug)
 file(COPY "webMap" DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Release")
 file(COPY "webMap" DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug")
 
-file(GLOB DATA_FILES "MemTools/dmaLibs/*.*")
+file(GLOB DATA_FILES "MemTools/dmaLibs/win32/*.dll" "MemTools/dmaLibs/win32/*.db")
 
 # 遍历文件列表并复制每个文件
-foreach(DATA_FILE ${DATA_FILES})
+foreach (DATA_FILE ${DATA_FILES})
     file(COPY ${DATA_FILE} DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Release")
     file(COPY ${DATA_FILE} DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug")
-endforeach()
+endforeach ()
 ########### 文件复制 #############

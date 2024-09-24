@@ -9,6 +9,7 @@
 #include "MemoryToolsBase.h"
 #include "Render.h"
 #include "Vector3D.hpp"
+#include "Vector2D.hpp"
 #include "VectorRect.hpp"
 #include "WebSocketServer.h"
 #include "hmutex.h"
@@ -49,6 +50,8 @@ struct OObject {
     VectorRect screenPosition;
     // 对象3d坐标
     Vector3D playerPosition;
+    // Head position
+    Vector3D headPosition;
     // 对象地址
     Addr addr = 0;
     // 名称
@@ -63,7 +66,7 @@ float distanceScal = 0.025;
 const int maxPlayer = 100;
 
 /*** 玩家、物资 ***/
-OObject mapObjectCache[1100];
+OObject *mapObjectCache = new OObject[1100];
 int mapObjectCacheCount = 0;
 /*** 玩家、物资 ***/
 
@@ -79,7 +82,7 @@ int maxObject = 10000;
 int beginObjectIndex = maxPlayer;
 
 /*** 物资***/
-OObject swapObjects[1000];
+OObject *swapObjects = new OObject[1000];
 int objectCount = 0;
 /*** 物资***/
 
@@ -98,19 +101,19 @@ std::map<int, std::string> mapNames = {
 };
 
 
-void drawObject(ImColor color, const OObject &player) {
-    float x = player.screenPosition.x;
-    float y = player.screenPosition.y;
-    float w = player.screenPosition.w;
-    float h = player.screenPosition.h;
+void drawObject(ImColor color, const OObject &object) {
+    float x = object.screenPosition.x;
+    float y = object.screenPosition.y;
+    float w = object.screenPosition.w;
+    float h = object.screenPosition.h;
 
     if (x <= 0 || x > render.screenWidth || y <= 0 || y > render.screenHeight) {
         return;
     }
 
     ImDrawList *draw = ImGui::GetForegroundDrawList();
-    std::string nameText = player.name;
-    nameText += "(" + std::to_string(player.distance) + ")";
+    std::string nameText = object.name;
+    nameText += "(" + std::to_string(object.distance) + ")";
     ImVec2 textSize = ImGui::CalcTextSize(nameText.c_str());
     draw->AddText(ImVec2(x + w / 2 - (textSize.x / 2), y + h + 2), color, nameText.c_str());
 }
@@ -189,8 +192,8 @@ std::string longToHex(Addr value) {
  * 物品读取线程
  */
 void objTest() {
-    EntityAddr objectAddrs[10000];
-    OObject cacheObjects[1000];
+    auto *objectAddrs = new EntityAddr[10000];
+    auto *cacheObjects = new OObject[1000];
     int objectIndex = 0;
     while (isRun) {
         objectIndex = 0;
@@ -247,6 +250,8 @@ void objTest() {
         // 延时10秒
         _sleep(10000);
     }
+    delete[] objectAddrs;
+    delete[] cacheObjects;
 }
 
 void surface(Addr baseAddr) {
@@ -302,11 +307,13 @@ void surface(Addr baseAddr) {
         if (ImGui::Button("exit")) {
             break;
         }
+
         if (gameState) {
             Addr localPlayerAddr = mem->readA(baseAddr, OFF_LOCAL_PLAYER);
             logDebug("localPlayerAddr: %llX\n", localPlayerAddr);
             OObject localPlayer;
             localPlayer.isPlayer = true;
+            localPlayer.addr = localPlayerAddr;
             Handle handle = mem->createScatter();
             mem->addScatterReadV(handle, &localPlayer.playerPosition, sizeof(Vector3D), localPlayerAddr, OFF_ORIGIN);
             mem->addScatterReadV(handle, &localPlayer.teamId, sizeof(int), localPlayerAddr, OFF_TEAM);
@@ -317,7 +324,8 @@ void surface(Addr baseAddr) {
             mem->executeReadScatter(handle);
             mem->closeScatterHandle(handle);
             handle = mem->createScatter();
-
+            // Read local player head position
+            readBonePosition(mem,localPlayer.headPosition, localPlayer.playerPosition, localPlayer.addr, 0);
             localPlayerPosition = localPlayer.playerPosition;
             vx = localPlayer.viewAngles.x;
             vy = localPlayer.viewAngles.y;
@@ -376,18 +384,19 @@ void surface(Addr baseAddr) {
                     mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
                     player.distance = dis;
                     // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
+                    // player.health = ((health + shieldHealth) / (maxShieldHealth + maxHealth)) / 100
                     player.health = static_cast<int>(
-                    (static_cast<float>(player.health + player.shieldHealth[0]) / (/* max health */100.0F + player.shieldHealth[1])) *
-                    100.0F);
+                    (static_cast<float>(player.health + player.shieldHealth[0])
+                        / (/* max health */100.0F + player.shieldHealth[1])) * 100.0F);
                     if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight,
                                        player.screenPosition)) {
                         break;
                     }
                     // 读取头部骨骼坐标
-                    Vector3D headPosition = readBonePosition(mem, player.addr, player.playerPosition, 0);
+                    readBonePosition(mem,player.headPosition, player.playerPosition, player.addr, 0);
                     VectorRect headScreenPosition;
-                    worldToScreen(headPosition, matrix, render.screenWidth, render.screenHeight, headScreenPosition);
-                    player.screenPosition.h = abs(abs(headScreenPosition.y) - abs(player.screenPosition.y));
+                    worldToScreen(player.headPosition, matrix, render.screenWidth, render.screenHeight, headScreenPosition);
+                    player.screenPosition.h = abs(abs(player.screenPosition.y) - abs(headScreenPosition.y));
                     player.screenPosition.w = player.screenPosition.h / 2.0f;
                     player.screenPosition.x += fx;
                     player.screenPosition.y += fy - player.screenPosition.h;
@@ -467,10 +476,11 @@ public:
             OObject &p = mapObject[i];
             Json objectJson;
             if (p.isPlayer) {
-                objectJson["x"] = p.playerPosition.x;
-                objectJson["y"] = p.playerPosition.y;
-                objectJson["z"] = p.playerPosition.z;
+                objectJson["x"] = p.headPosition.x;
+                objectJson["y"] = p.headPosition.y;
+                objectJson["z"] = p.headPosition.z;
                 objectJson["teamId"] = p.teamId;
+                objectJson["lifeState"] = p.lifeState;
                 objectJson["isPlayer"] = p.isPlayer;
                 objectJson["health"] = p.health;
                 objectJson["viewAnglesV"] = p.viewAngles.x;
@@ -605,5 +615,7 @@ int main() {
     plugin();
     delete mem;
     delete[] entityAddrs;
+    delete[] swapObjects;
+    delete[] mapObjectCache;
     return 0;
 }

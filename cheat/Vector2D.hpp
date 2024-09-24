@@ -1,6 +1,5 @@
 #pragma once
 #include <cmath>
-#include <stdexcept>
 
 struct Vector2D {
     float x, y;

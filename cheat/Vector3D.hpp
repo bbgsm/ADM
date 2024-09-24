@@ -1,5 +1,5 @@
 #pragma once
-#include "Vector2D.hpp"
+#include <cmath>
 
 struct Vector3D {
     float x, y, z;
@@ -21,7 +21,7 @@ struct Vector3D {
 
     // 计算向量的模（长度）
     float magnitude() const {
-        return sqrtf(x * x + y * y + z * z);
+        return sqrt(x * x + y * y + z * z);
     }
 
     // 计算两个向量之间的距离
@@ -32,6 +32,10 @@ struct Vector3D {
     // 重载减号运算符，用于计算两个向量的差
     Vector3D operator-(const Vector3D &v) const {
         return Vector3D(x - v.x, y - v.y, z - v.z);
+    }
+
+    Vector2D toVector2D() const {
+        return Vector2D(x, y);
     }
 
     bool isZero() const {

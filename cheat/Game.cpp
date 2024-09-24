@@ -3,7 +3,11 @@
 //
 
 #include "Game.h"
+
+#include <cstring>
 #include <map>
+
+#include "Vector2D.hpp"
 #include "offsets.h"
 
 // 骨骼地址缓存
@@ -11,7 +15,7 @@ std::map<Addr, Addr> playerBones[10];
 // 玩家名称缓存
 std::map<Addr, char[32]> playerNames;
 
-Vector3D readBonePosition(MemoryToolsBase *mem, Addr player, Vector3D &origin, int id) {
+void readBonePosition(MemoryToolsBase *mem, Vector3D &headPosition, Vector3D &origin, Addr player, int id) {
     static const int MAX_BONE_INDEX = 255;
     float matrix[3][4];
     Addr &boneAddr = playerBones[id][player];
@@ -24,19 +28,21 @@ Vector3D readBonePosition(MemoryToolsBase *mem, Addr player, Vector3D &origin, i
         int hitboxIndex = ((ushort)(indexCache & 0xFFFE) << (4 * (indexCache & 1)));
         ushort bone = mem->readUS(hitboxIndex + hitboxArray + (id * 0x20));
         if (bone < 0 || bone > MAX_BONE_INDEX) {
-            return {};
+            return ;
         }
         Addr bones = mem->readA(player, OFF_BONES);
         boneAddr = bones + bone * sizeof(matrix);
     }
     mem->readV(matrix, sizeof(matrix), boneAddr);
-    return {matrix[0][3] + origin.x, matrix[1][3] + origin.y, matrix[2][3] + origin.z};
+    headPosition.x = matrix[0][3] + origin.x;
+    headPosition.x = matrix[1][3] + origin.y;
+    headPosition.x =  matrix[2][3] + origin.z;
 }
 
-void getName(MemoryToolsBase *mem, uint64_t baseAddr, ulong index, char *name) {
+void getName(MemoryToolsBase *mem, Addr baseAddr, ulong index, char *name) {
     index *= 0x18;
     Addr addr = baseAddr + OFF_NAME_LIST + index;
-    if (playerNames.find(addr) != playerNames.end()) {
+    if (playerNames.contains(addr)) {
         memcpy(name, playerNames[addr], 32);
         return;
     }
@@ -72,9 +78,12 @@ float computeDistance(Vector3D a, Vector3D b) {
     return sqrtf(powf(b.x - a.x, 2.0F) + powf(b.y - a.y, 2.0F) + powf(b.z - a.z, 2.0F));
 }
 
-void rotate(float x1, float y1, Vector2D &mapPosition, float angle) {
-    mapPosition.x = x1 * cos(angle) - y1 * sin(angle);
-    mapPosition.y = x1 * sin(angle) + y1 * cos(angle);
+void rotate(Vector2D a, Vector2D b, Vector2D &mapPosition, float viewAnglesH) {
+    float angle = viewAnglesH / 360.0 * M_PI * 2.0;
+    float relativeX = (a.x - b.x) ;
+    float relativeY = (a.y - b.y);
+    mapPosition.x = relativeY * cos(angle) - relativeX * sin(angle);
+    mapPosition.y = relativeY * sin(angle) + relativeX * cos(angle);
 }
 
 void removeInvalidUTF8(char *str) {

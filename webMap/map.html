@@ -87,27 +87,31 @@
 </div>
 
 <script>
+
+    // 全局的角度偏移量，可以根据实际情况进行调整
+    var HORIZONTAL_OFFSET = 0; // 水平方向的角度偏移量
+    var VERTICAL_OFFSET = 20; // 垂直方向的角度偏移量
+
     var nameValue = '';
     var scale = 50.0;
     var range = 500;
     var displayTeam = true;
     var displayObject = true;
-    var rv = 0;
     const canvas = document.getElementById('mapCanvas');
     const ctx = canvas.getContext('2d');
 
     const colors = [
         "#FF9633", // 桃色
         "#00FF00", // 绿色
-        "#33FFD1", // 水绿色
+        "#00ba90", // 水绿色
         "#0000FF", // 蓝色
         "#FFFF00", // 黄色
         "#FF00FF", // 紫色
-        "#FFFFFF", // 白色
+        "#00FFFF", // 青色
         "#8A2BE2", // 蓝紫色
         "#FFA500", // 橙色
         "#FFC0CB", // 粉色
-        "#00FFFF", // 青色 队友颜色
+        "#FFFFFF", // 白色 队友颜色
         "#FF0000", // 红色 警告颜色
     ];
 
@@ -163,12 +167,11 @@
         }
         const displayObjectValue = localStorage.getItem('displayObject');
         if (displayObjectValue !== null) {
-            document.getElementById('displayObjectCheckBox').checked = displayTeamValue === 'true';
-            displayTeam = displayObjectValue === 'true';
+            document.getElementById('displayObjectCheckBox').checked = displayObjectValue === 'true';
+            displayObject = displayObjectValue === 'true';
         } else {
             document.getElementById('displayObjectCheckBox').checked = true;
         }
-
 
     };
 
@@ -180,11 +183,6 @@
         localStorage.clear();
         location.reload();
     }
-
-    // 全局的角度偏移量，可以根据实际情况进行调整
-    var HORIZONTAL_OFFSET = 0; // 水平方向的角度偏移量
-    var VERTICAL_OFFSET = 0; // 垂直方向的角度偏移量
-
 
     function normalizeAngle(angle) {
         angle = angle % 360;
@@ -201,8 +199,7 @@
         ctx.save();
 
         ctx.translate(x, y);
-        const rad = normalizedAngle / 360.0 * Math.PI * 2.0;
-        ctx.rotate(rad);
+        ctx.rotate(normalizedAngle / 360.0 * Math.PI * 2.0);
 
         ctx.beginPath();
         ctx.moveTo(0, -size * 1.5); // 顶点
@@ -219,20 +216,23 @@
     function drawTextWithBackground(x, y, color, text) {
         const textWidth = ctx.measureText(text).width;
         const textHeight = 14;
+        // ctx.globalAlpha = 0.8;
+
         ctx.fillStyle = color;
         ctx.fillRect(x - textWidth / 2 - 2, y + 15, textWidth + 4, textHeight + 4);
         ctx.fillStyle = 'white';
         ctx.font = '14px Arial';
         ctx.fillText(text, x - textWidth / 2, y + 15 + textHeight);
+        ctx.restore();
     }
 
-    function rotate(a, b, viewAngles) {
-        const angle = viewAngles / 360.0 * Math.PI * 2.0
+    function rotate(a, b) {
+        const angle = a.viewAnglesH / 360.0 * Math.PI * 2.0
         const mapPosition = {};
-        const relativeX = (a.y - b.y) / scale;
-        const relativeY = (a.x - b.x) / scale;
-        mapPosition.x = relativeX * Math.cos(angle) - relativeY * Math.sin(angle);
-        mapPosition.y = relativeX * Math.sin(angle) + relativeY * Math.cos(angle);
+        const relativeX = (a.x - b.x) / scale;
+        const relativeY = (a.y - b.y) / scale;
+        mapPosition.x = relativeY * Math.cos(angle) - relativeX * Math.sin(angle);
+        mapPosition.y = relativeY * Math.sin(angle) + relativeX * Math.cos(angle);
         return mapPosition;
     }
 
@@ -249,7 +249,7 @@
 
         // 检查视角是否在指定容差范围内
         const isHorizontalAligned = Math.abs(horizontalAngle - a.viewAnglesH) <= tolerance;
-        const isVerticalAligned = Math.abs(verticalAngle - a.viewAnglesV + 20) <= 30; // 垂直视角因为坐标问题不准，先允许误差为30度
+        const isVerticalAligned = Math.abs(verticalAngle - a.viewAnglesV + VERTICAL_OFFSET) <= 30; // 垂直视角因为坐标问题不准，先允许误差为30度
 
         return isHorizontalAligned && isVerticalAligned;
     }
@@ -264,18 +264,24 @@
         if (!localPlayer) return;
 
         players.forEach(player => {
+            if (player === localPlayer) {
+                return;
+            }
             if (!displayTeam && localPlayer.teamId === player.teamId) {
                 return;
             }
+            if (!displayObject && !player.isPlayer) {
+                return;
+            }
             let dis = distance(localPlayer, player);
-            if (player === localPlayer || dis > range) {
+            if (dis > range) {
                 return;
             }
             if (player.isPlayer && player.health <= 0) {
                 return;
             }
             let mapPosition = rotate(
-                localPlayer, player, localPlayer.viewAnglesH
+                localPlayer, player
             );
             let x = mapPosition.x + centerX;
             let y = mapPosition.y + centerY - 10;
@@ -294,13 +300,13 @@
                     playerColor = colors[11];
                 } else {
                     if (isPointingTo(localPlayer, player)) {
-                        playerColor = 'rgba(255, 200, 0, 0.8)';
+                        playerColor = 'rgba(255,252,70,0.8)';
                     } else {
                         playerColor = displayTeam && localPlayer.teamId === player.teamId ? colors[10] : colors[player.teamId % 10];
                     }
                 }
+                const text = " (V:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
                 drawTriangle(x, y, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
-                const text = " (" + parseInt((player.z - localPlayer.z) * 0.025) + "M)";
                 drawTextWithBackground(x, y, 'rgba(0, 0, 0, 0.7)', text);
             } else {
                 const playerName = player.name + " (" + dis + "M)";
@@ -309,7 +315,6 @@
                     color = 'rgba(0, 200, 0, 0.6)';
                 } else {
                     color = 'rgba(0, 0, 0, 0.7)';
-
                 }
                 drawTextWithBackground(x, y, color, playerName);
             }
@@ -320,6 +325,7 @@
     ws.onmessage = function (event) {
         const players = JSON.parse(event.data);
         if (!players || players.length === 0) return;
+        players.sort((a, b) => a.isPlayer - b.isPlayer);
         drawPlayers(players);
     };
 
@@ -330,6 +336,46 @@
     ws.onerror = function (error) {
         console.error('WebSocket error:', error);
     };
+
+    /**** test code ****/
+    /*function generateRandomPlayer() {
+        return {
+            name: 'Player' + Math.floor(Math.random() * 1000),
+            x: Math.random() * 300,
+            y: Math.random() * 300,
+            z: 0,
+            isPlayer: (parseInt(Math.random() * 100) % 2 === 0),
+            health: Math.floor(Math.random() * 101),
+            viewAnglesH: Math.random() * 360,
+            viewAnglesV: Math.random() * 180 - 90,
+            distance: Math.random() * 100,
+            teamId: Math.floor(Math.random() * 10) + 1
+        };
+    }
+
+    const players = [];
+    setInterval(() => {
+        nameValue = 'Player1';
+        players.length = 0;
+        for (let i = 0; i < 100; i++) {
+            players.push(generateRandomPlayer());
+        }
+        players.push({
+            name: 'Player1',
+            x: 100,
+            y: 100,
+            z: 0,
+            isPlayer: true,
+            health: 100,
+            viewAnglesH: 0,
+            viewAnglesV: 0,
+            distance: 1,
+            teamId: 1
+        });
+        players.sort((a, b) => a.isPlayer - b.isPlayer);
+        drawPlayers(players);
+    }, 1000);*/
+    /**** test code ****/
 </script>
 
 </body>
