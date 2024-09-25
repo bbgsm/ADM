@@ -16,6 +16,7 @@ include_directories(.)
 include_directories(MemTools)
 include_directories(MemTools/dmaLibs/include)
 include_directories(imgui)
+include_directories(imgui/backends)
 include_directories(cheat)
 include_directories(render)
 include_directories(CEPlugin)
@@ -32,7 +33,14 @@ file(GLOB_RECURSE RENDER_SOURCES "render/*.cpp" "render/*.h")
 file(GLOB_RECURSE CE_PLUGIN_SOURCES "CEPlugin/*.cpp" "CEPlugin/*.h" "CEPlugin/*.hpp" "CEPlugin/*.def" "cheat/*.cpp" "cheat/*.hpp")
 file(GLOB_RECURSE CHEAT_SRC_SOURCES "cheat/*.cpp" "cheat/*.hpp" "cheat/*.h")
 file(GLOB_RECURSE TEST_GUI_SRC_SOURCES "testGui/*.cpp" "testGui/*.hpp" "testGui/*.h")
-file(GLOB_RECURSE IMGUI_SOURCES "imgui/*.cpp" "imgui/*.h" "imgui/*.hpp")
+file(GLOB_RECURSE IMGUI_SOURCES
+        "imgui/imgui.cpp"
+        "imgui/imgui_draw.cpp"
+        "imgui/imgui_tables.cpp"
+        "imgui/imgui_widgets.cpp"
+        "imgui/backends/imgui_impl_dx11.cpp"
+        "imgui/backends/imgui_impl_win32.cpp"
+)
 file(GLOB_RECURSE MEMORY_TOOLS_SOURCES
         "MemTools/DirectMemoryTools.cpp"
         "MemTools/DmaMemoryTools.cpp"
