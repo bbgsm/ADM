@@ -99,7 +99,11 @@
     var displayObject = true;
     const canvas = document.getElementById('mapCanvas');
     const ctx = canvas.getContext('2d');
-
+    const teamColor = "#FFFFFF";                                  // 队友颜色
+    const warningColor = "#FF0000";                               // 警告颜色
+    const selectPlayerColor = 'rgba(255,252,70,1)';               // 选中玩家颜色
+    const selectObjectBackgroundColor = 'rgba(0, 200, 0, 0.6)';   // 选中物品颜色
+    const textBackgroundColor = 'rgba(0, 0, 0, 0.7)';             // 文本默认背景颜色
     const colors = [
         "#FF9633", // 桃色
         "#00FF00", // 绿色
@@ -111,8 +115,6 @@
         "#8A2BE2", // 蓝紫色
         "#FFA500", // 橙色
         "#FFC0CB", // 粉色
-        "#FFFFFF", // 白色 队友颜色
-        "#FF0000", // 红色 警告颜色
     ];
 
     document.getElementById('displayTeamCheckBox').onchange = function () {
@@ -297,24 +299,24 @@
             }
             if (player.isPlayer) {
                 if (isPointingTo(player, localPlayer)) {
-                    playerColor = colors[11];
+                    playerColor = warningColor;
                 } else {
                     if (isPointingTo(localPlayer, player)) {
-                        playerColor = 'rgba(255,252,70,0.8)';
+                        playerColor = selectPlayerColor;
                     } else {
-                        playerColor = displayTeam && localPlayer.teamId === player.teamId ? colors[10] : colors[player.teamId % 10];
+                        playerColor = displayTeam && localPlayer.teamId === player.teamId ? teamColor : colors[player.teamId % 10];
                     }
                 }
                 const text = " (V:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
                 drawTriangle(x, y, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
-                drawTextWithBackground(x, y, 'rgba(0, 0, 0, 0.7)', text);
+                drawTextWithBackground(x, y, textBackgroundColor, text);
             } else {
                 const playerName = player.name + " (" + dis + "M)";
                 let color;
                 if (isPointingTo(localPlayer, player)) {
-                    color = 'rgba(0, 200, 0, 0.6)';
+                    color = selectObjectBackgroundColor;
                 } else {
-                    color = 'rgba(0, 0, 0, 0.7)';
+                    color = textBackgroundColor;
                 }
                 drawTextWithBackground(x, y, color, playerName);
             }

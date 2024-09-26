@@ -58,7 +58,7 @@ add_executable(ADM
         ${TOOLS_SOURCES}
 )
 
-add_library(CEPlugin SHARED
+add_library(ADM_CE_Plugin SHARED
         ${MEMORY_TOOLS_SOURCES}
         ${RENDER_SOURCES}
         ${IMGUI_SOURCES}
@@ -90,7 +90,7 @@ target_link_libraries(ADM
         "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/leechcore.lib"
         "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/vmm.lib"
         ws2_32
-        D3D11.lib
+        d3d11
         hv_static
 )
 
@@ -98,21 +98,21 @@ target_link_libraries(test
         "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/leechcore.lib"
         "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/vmm.lib"
         ws2_32
-        D3D11.lib
+        d3d11
         hv_static
 )
 
-target_link_libraries(CEPlugin
+target_link_libraries(ADM_CE_Plugin
         "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/leechcore.lib"
         "${CMAKE_SOURCE_DIR}/MemTools/dmaLibs/win32/vmm.lib"
         ws2_32
-        D3D11.lib
+        d3d11
         hv_static
 )
 
 target_link_libraries(testGui
         ws2_32
-        D3D11.lib
+        d3d11
 )
 
 ########### 文件复制 #############

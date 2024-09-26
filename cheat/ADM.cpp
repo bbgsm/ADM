@@ -498,6 +498,7 @@ public:
                 objectJson["y"] = p.playerPosition.y;
                 objectJson["z"] = p.playerPosition.z;
                 objectJson["name"] = p.name;
+                objectJson["itemId"] = p.itemId;
             }
             //            objectJson["addr"] = p.addr;
             data += {objectJson};
