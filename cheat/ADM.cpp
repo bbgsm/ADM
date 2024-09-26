@@ -1,6 +1,6 @@
 #include <iostream>
 #include <map>
-
+#define DEBUG_INFO
 #include "DirectMemoryTools.h"
 #include "DmaMemoryTools.h"
 #include "DumpMemoryTools.h"
@@ -8,8 +8,8 @@
 #include "Game.h"
 #include "MemoryToolsBase.h"
 #include "Render.h"
-#include "Vector3D.hpp"
 #include "Vector2D.hpp"
+#include "Vector3D.hpp"
 #include "VectorRect.hpp"
 #include "WebSocketServer.h"
 #include "hmutex.h"
@@ -77,7 +77,8 @@ float vy = 0;
 // localPlayer 3d 坐标
 Vector3D localPlayerPosition;
 // 最大物品数
-int maxObject = 10000;
+int maxObjectCount = 10000;
+int maxDisplayObjectCount = 1000;
 // 物品列表读取起始下标
 int beginObjectIndex = maxPlayer;
 
@@ -182,12 +183,6 @@ void entityAddrsRead() {
     }
 }
 
-std::string longToHex(Addr value) {
-    std::stringstream ss;
-    ss << std::hex << std::uppercase << value;
-    return ss.str();
-}
-
 /**
  * 物品读取线程
  */
@@ -197,7 +192,7 @@ void objTest() {
     int objectIndex = 0;
     while (isRun) {
         objectIndex = 0;
-        int count = maxObject - beginObjectIndex;
+        int count = maxObjectCount - beginObjectIndex;
         if (count > 0) {
             entityMutex.lock();
             memcpy(objectAddrs, entityAddrs, sizeof(EntityAddr) * count);
@@ -262,11 +257,11 @@ void surface(Addr baseAddr) {
     float line = 1;
     float range = 300;
     float matrix[16];
-    // Addr playersAddrs[maxPlayer] = {0};
+
     float lastVisTimes[maxPlayer] = {0};
-    OObject players[maxPlayer];
-    EntityAddr playerAddrs[maxPlayer];
-    OObject cacheObjects[1000];
+    auto *players = new OObject[maxPlayer];
+    auto *playerAddrs = new EntityAddr[maxPlayer];
+    auto *cacheObjects = new OObject[1000];
     int cacheObjectCount = 0;
 
     int playerCount = 0;
@@ -301,10 +296,12 @@ void surface(Addr baseAddr) {
         ImGui::SliderFloat("显示范围(米)", &range, 0.0f, 10000.0f, "%.1f");
         ImGui::SliderFloat("水平视角", &vx, -180, 180, "%.6f");
         ImGui::SliderFloat("垂直视角", &vy, -180, 180, "%.6f");
-        ImGui::SliderInt("最大物品数", &maxObject, 0, 10000);
-        ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, 0, 10000);
+        ImGui::SliderInt("最大显示物品数", &maxDisplayObjectCount, 0, 1000);
+        ImGui::SliderInt("最大读取物品数", &maxObjectCount, 0, 10000);
+        ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, maxPlayer, 10000);
 
         if (ImGui::Button("exit")) {
+            isRun = false;
             break;
         }
 
@@ -325,7 +322,7 @@ void surface(Addr baseAddr) {
             mem->closeScatterHandle(handle);
             handle = mem->createScatter();
             // Read local player head position
-            readBonePosition(mem,localPlayer.headPosition, localPlayer.playerPosition, localPlayer.addr, 0);
+            readBonePosition(mem, localPlayer.headPosition, localPlayer.playerPosition, localPlayer.addr, 0);
             localPlayerPosition = localPlayer.playerPosition;
             vx = localPlayer.viewAngles.x;
             vy = localPlayer.viewAngles.y;
@@ -385,17 +382,17 @@ void surface(Addr baseAddr) {
                     player.distance = dis;
                     // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
                     // player.health = ((health + shieldHealth) / (maxShieldHealth + maxHealth)) / 100
-                    player.health = static_cast<int>(
-                    (static_cast<float>(player.health + player.shieldHealth[0])
-                        / (/* max health */100.0F + player.shieldHealth[1])) * 100.0F);
+                    player.health = static_cast<int>((static_cast<float>(player.health + player.shieldHealth[0]) /
+                                                      (/* max health */ 100.0F + player.shieldHealth[1])) * 100.0F);
                     if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight,
                                        player.screenPosition)) {
                         break;
                     }
                     // 读取头部骨骼坐标
-                    readBonePosition(mem,player.headPosition, player.playerPosition, player.addr, 0);
+                    readBonePosition(mem, player.headPosition, player.playerPosition, player.addr, 0);
                     VectorRect headScreenPosition;
-                    worldToScreen(player.headPosition, matrix, render.screenWidth, render.screenHeight, headScreenPosition);
+                    worldToScreen(player.headPosition, matrix, render.screenWidth, render.screenHeight,
+                                  headScreenPosition);
                     player.screenPosition.h = abs(abs(player.screenPosition.y) - abs(headScreenPosition.y));
                     player.screenPosition.w = player.screenPosition.h / 2.0f;
                     player.screenPosition.x += fx;
@@ -442,6 +439,9 @@ void surface(Addr baseAddr) {
         }
         render.drawEnd();
     }
+    delete[] players;
+    delete[] playerAddrs;
+    delete[] cacheObjects;
 }
 
 using namespace hv;
@@ -521,7 +521,7 @@ public:
 };
 
 void sendWebsocket() {
-    OObject mapObject[1100];
+    auto mapObject = new OObject[1100];
     int mapObjectCount = 0;
     while (isRun) {
         if (mapObjectCacheCount > 0) {
@@ -537,6 +537,7 @@ void sendWebsocket() {
         }
         _sleep(100);
     }
+    delete[] mapObject;
 }
 void websocketServer() {
     int port = 6888;

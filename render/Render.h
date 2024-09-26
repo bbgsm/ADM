@@ -19,7 +19,7 @@ public:
 public:
     void initImGui(LPCWSTR lpWindowName);  // 初始化Imgui
     void destroyImGui();                   // 释放imgui资源
-    void drawBegin();                      // 会之前调用
+    void drawBegin();                      // 绘制之前调用
     void drawEnd();                        // 绘制结束调用
     void switchMonitor(int monitorIndex);  // 选择显示屏幕下标
 };

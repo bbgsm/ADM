@@ -35,8 +35,8 @@ void readBonePosition(MemoryToolsBase *mem, Vector3D &headPosition, Vector3D &or
     }
     mem->readV(matrix, sizeof(matrix), boneAddr);
     headPosition.x = matrix[0][3] + origin.x;
-    headPosition.x = matrix[1][3] + origin.y;
-    headPosition.x =  matrix[2][3] + origin.z;
+    headPosition.y = matrix[1][3] + origin.y;
+    headPosition.z =  matrix[2][3] + origin.z;
 }
 
 void getName(MemoryToolsBase *mem, Addr baseAddr, ulong index, char *name) {
