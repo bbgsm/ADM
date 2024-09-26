@@ -1,6 +1,6 @@
 #include <iostream>
 #include <map>
-#define DEBUG_INFO
+// #define DEBUG_INFO
 #include "DirectMemoryTools.h"
 #include "DmaMemoryTools.h"
 #include "DumpMemoryTools.h"
