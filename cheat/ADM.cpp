@@ -158,7 +158,7 @@ void drawPlayer(ImColor color, const OObject &player, float line_w) {
     draw->AddLine(ImVec2(left, bottom), ImVec2(right, bottom), color, line_w);
 
     // 准备显示的文本
-    std::string text = std::to_string(player.distance) + "M team:(" + std::to_string(player.viewAngles.y) + ")";
+    std::string text = std::to_string(player.distance) + "M team:(" + std::to_string(player.distance) + ")";
     std::string nameText = player.name;
 
     // 计算文本尺寸并绘制

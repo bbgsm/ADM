@@ -1,11 +1,11 @@
 #pragma once
-// 游戏版本: v3.0.80.27 这鸟游戏版本，玩我呢，左右横跳，一天版本来回变更几回
+// 游戏版本: v3.0.81.36 这鸟游戏版本，玩我呢，左右横跳，一天版本来回变更几回
 
 /*** r5apex.exe 偏移  ***/
 #define OFF_GAME_STATE 0x1EC1FC0    // 对局是否进行 bool
 #define OFF_ENTITY_LIST 0x1F61048  // 对象数组(玩家，物品) 大小10000 * 32
 #define OFF_LOCAL_PLAYER 0x24342B8  // 操作玩家指针
-#define OFF_NAME_LIST 0xD425FE0     // 名称字典指针
+#define OFF_NAME_LIST 0xD426160      // 名称字典指针
 #define OFF_MATRIX1 0x2429450       // 4x4矩阵 float[16]
 #define OFF_LEVEL_NAME 0x18356C4     // 对局名称
 /*** r5apex.exe 偏移 ***/

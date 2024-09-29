@@ -307,7 +307,7 @@
                         playerColor = displayTeam && localPlayer.teamId === player.teamId ? teamColor : colors[player.teamId % 10];
                     }
                 }
-                const text = " (V:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
+                const text = " (高度:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
                 drawTriangle(x, y, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
                 drawTextWithBackground(x, y, textBackgroundColor, text);
             } else {
