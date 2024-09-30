@@ -51,10 +51,10 @@ void surface() {
     int hp = 100;
     float line = 1;
     while (true) {
-        render.drawBegin();
-
+        if(!render.drawBegin()) {
+            continue;
+        }
         ImDrawList *draw = ImGui::GetForegroundDrawList();
-
         std::string PerformanceString = "Render FPS: " + std::to_string(static_cast<int>(ImGui::GetIO().Framerate));
         draw->AddText(ImVec2(10, 50), IM_COL32(255, 255, 255, 255), PerformanceString.c_str());
 
@@ -72,13 +72,7 @@ void surface() {
         ImGui::SetNextWindowSize(ImVec2(400, 430), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(ImVec2(render.screenWidth - 410, 10), ImGuiCond_FirstUseEver);
         ImGui::Begin("testGui");
-        ImGui::Text("AimAssist Settings");
-
-        ImGui::Text("Sticky Aim:");
-        ImGui::SameLine();
         ImGui::Text("测试");
-
-        ImGui::Text("Glow Settings");
 
         ImGui::SliderFloat("#x", &x, 0.0f, (float) render.screenWidth, "%.2f");
         ImGui::SliderFloat("#y", &y, 0.0f, (float) render.screenHeight, "%.2f");
@@ -87,6 +81,7 @@ void surface() {
         ImGui::SliderInt("#d", &d, 0, 1000);
         ImGui::SliderInt("#hp", &hp, 0, 100);
         ImGui::SliderFloat("#line", &line, 0.0f, 10.0f, "%.1f");
+        ImGui::End();
 
         float fbx = x;
         float fby = y;
@@ -100,7 +95,7 @@ void surface() {
 
 
 int main() {
-    render.initImGui(L"testGui");
+    render.initImGui("testGui",0);
     surface();
     render.destroyImGui();
 }

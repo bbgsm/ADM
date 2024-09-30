@@ -1,12 +1,12 @@
 //
 // Created by bbgsm on 2024/8/24.
 //
-
 #include "Render.h"
+#include "Font.h"
+#ifdef _WIN32 // Windows
 #include <d3d11.h>
 #include <iostream>
 #include <vector>
-#include "Font.h"
 #include "imgui_impl_dx11.h"
 #include "imgui_impl_win32.h"
 
@@ -49,7 +49,7 @@ std::vector<MonitorInfo> getMonitors() {
     return monitors;
 }
 
-void Render::switchMonitor(int monitorIndex) {
+void switchMonitor(int monitorIndex) {
     auto monitors = getMonitors();
     if (monitorIndex >= 0 && monitorIndex < monitors.size()) {
         const RECT &rect = monitors[monitorIndex].rcMonitor;
@@ -131,7 +131,7 @@ void CleanupRenderTarget() {
     }
 }
 
-void Render::initImGui(LPCWSTR lpWindowName) {
+void Render::initImGui(std::string windowName, int monitorIndex) {
     screenWidth = GetSystemMetrics(SM_CXSCREEN);
     screenHeight = GetSystemMetrics(SM_CYSCREEN);
     // Create application window
@@ -155,6 +155,7 @@ void Render::initImGui(LPCWSTR lpWindowName) {
         ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
         return;
     }
+    switchMonitor(monitorIndex);
     // Show the window
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
@@ -186,7 +187,7 @@ void Render::destroyImGui() {
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 }
 
-void Render::drawBegin() {
+bool Render::drawBegin() {
     if (hwnd != nullptr) {
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     }
@@ -208,6 +209,7 @@ void Render::drawBegin() {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+    return true;
 }
 
 void Render::drawEnd() {
@@ -254,3 +256,180 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
+#elifdef LINUX // Linux
+
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include <cstdio>
+
+#define GLFW_EXPOSE_NATIVE_X11
+#define GLFW_EXPOSE_NATIVE_GLX
+#include <imgui_internal.h>
+#include <iostream>
+#include <X11/Xlib.h>
+#include <X11/extensions/shape.h>
+#include <GLFW/glfw3.h> // Will drag system OpenGL headers
+#include <GLFW/glfw3native.h>
+
+bool enableClickThrough = false;
+GLFWwindow* window;
+
+void delay_ms(int milliseconds)
+{
+    timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+}
+
+void setWindowClickThrough(GLFWwindow* window, bool enable)
+{
+    Display* display = XOpenDisplay(NULL);
+    if (!display)
+    {
+        return;
+    }
+    int width, height;
+    glfwGetWindowSize(window, &width, &height);
+    printf("Window size: %dx%d\n", width, height);
+    // 获取原始的 X11 窗口 ID
+    Window x11_window = glfwGetX11Window(window);
+    XRectangle rect;
+    rect.x = 0;
+    rect.y = 0;
+    rect.width = width;
+    rect.height = height;
+    if (enable)
+    {
+        // 设置窗口为点击穿透
+        XShapeCombineRectangles(display, x11_window, ShapeInput, 0, 0, &rect, 1, ShapeSubtract, Unsorted);
+        printf("enable\n");
+    }
+    else
+    {
+        XShapeCombineRectangles(display, x11_window, ShapeInput, 0, 0, &rect, 1, ShapeSet, Unsorted);
+        printf("disable\n");
+    }
+    XSync(display,true);
+    XCloseDisplay(display);
+    delay_ms(1);
+}
+
+void window_focus_callback(GLFWwindow* window, int focused) {
+    if (focused) {
+        setWindowClickThrough(window, false);
+    }
+}
+
+
+static void glfw_error_callback(int error, const char* description)
+{
+    fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
+bool Render::initImGui(const std::string &windowName, int monitorIndex){
+    glfwSetErrorCallback(glfw_error_callback);
+    if (!glfwInit())
+        return false;
+    const char* glsl_version = "#version 130";
+    // 设置窗口属性
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+    // 配置窗口属性
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); // 禁用窗口装饰
+    // 获取所有可用的显示器
+    int count;
+    GLFWmonitor** monitors = glfwGetMonitors(&count);
+    if (monitorIndex >= count || monitorIndex < 0) {
+        monitorIndex = 0;
+    }
+    // 通过下标获取显示器
+    GLFWmonitor* monitor = monitors[monitorIndex];
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    screenWidth = mode->width;
+    screenHeight = mode->height;
+    window = glfwCreateWindow(mode->width, mode->height, windowName.c_str(), monitor, NULL);
+    if (window == nullptr)
+        return false;
+    // 设置窗口焦点回调
+    glfwSetWindowFocusCallback(window, window_focus_callback);
+    // Set window on top
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1); // Enable vsync
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+    auto *OPPOSans = new unsigned int[2219752 / 4];
+    memcpy(OPPOSans, OPPOSans_H, 2219752);
+    // Setup fonts
+    chineseFont = io.Fonts->AddFontFromMemoryTTF((void *) OPPOSans, OPPOSans_H_size, 15, nullptr,
+                                                 io.Fonts->GetGlyphRangesChineseFull());
+    io.FontDefault = chineseFont;
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init(glsl_version);
+    return true;
+}
+
+void Render::destroyImGui(){
+    // Cleanup
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(window);
+    glfwTerminate();
+}
+
+bool Render::drawBegin(){
+    if(glfwWindowShouldClose(window)) {
+        return false;
+    }
+    glfwPollEvents();
+    if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0)
+    {
+        ImGui_ImplGlfw_Sleep(10);
+        return false;
+    }
+    // Start the Dear ImGui frame
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+    return true;
+}
+
+void Render::drawEnd(){
+    ImGui::Render();
+    int display_w, display_h;
+    glfwGetFramebufferSize(window, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse)
+    {
+        if (enableClickThrough)
+        {
+            enableClickThrough = false;
+            setWindowClickThrough(window,enableClickThrough);
+        }
+    }
+    else
+    {
+        if (!enableClickThrough)
+        {
+            enableClickThrough = true;
+            setWindowClickThrough(window,enableClickThrough);
+        }
+    }
+    glfwSwapBuffers(window);
+}
+#endif

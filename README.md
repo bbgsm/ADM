@@ -1,5 +1,5 @@
 # ADM
-Apex Dma 方框、网页地图分享
+Apex Dma 方框、网页地图分享, 支持Windows和Linux上运行
 # 图片
 
 * 方框
@@ -16,7 +16,22 @@ Apex Dma 方框、网页地图分享
 * `git clone --recursive https://github.com/bbgsm/ADM.git`
 
 # 编译
-#### 本项目编译环境使用 Clion + cmake + vs2022, 在 Clion 的 cmake 配置中选择vs2022编译工具链进行编译
+- Windows
+编译环境: Clion + cmake + vs2022, 在 Clion 的 cmake 配置中选择vs2022编译工具链进行编译
+- Linux
+编译环境: Clion + cmake + Unix Makefiles, 在 Clion 的 cmake 配置中选择Unix Makefiles编译工具
+<br><font color='red'> Linux 上要把 leechcore.so vmm.so leechcore_ft601_driver_linux.so 三个文件复制到 /usr/lib64/下，并且运行时候以root运行(非root大概不成功) </font>
+
+
+
+# 测试环境
+#### Windows
+- Windows 11 + vs2022
+#### Linux
+- Linux arm64 香橙派5 + Ubuntu 20.04
+- Linux X64 待开发....
+
+
 # 目录
 * [cheat 作弊主目录](cheat)
 * [blockScreen 黑屏背景(融合器背景专用)](blockScreen)

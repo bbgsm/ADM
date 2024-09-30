@@ -13,7 +13,6 @@
 #include "VectorRect.hpp"
 #include "WebSocketServer.h"
 #include "hmutex.h"
-#include "hooks.h"
 #include "offsets.h"
 
 MemoryToolsBase *mem;
@@ -179,7 +178,7 @@ void entityAddrsRead() {
         entityMutex.lock();
         mem->readV(entityAddrs, sizeof(EntityAddr) * 10000, entityList);
         entityMutex.unlock();
-        _sleep(1000);
+        hv_delay(1000);
     }
 }
 
@@ -243,7 +242,7 @@ void objTest() {
             objectCount = 0;
         }
         // 延时10秒
-        _sleep(10000);
+        hv_delay(10000);
     }
     delete[] objectAddrs;
     delete[] cacheObjects;
@@ -277,7 +276,9 @@ void surface(Addr baseAddr) {
         cacheObjectCount = objectCount;
         objMutex.unlock();
 
-        render.drawBegin();
+        if(!render.drawBegin()) {
+            continue;
+        }
         bool gameState = mem->readB(baseAddr, OFF_GAME_STATE);
 
         ImDrawList *fpsDraw = ImGui::GetForegroundDrawList();
@@ -304,6 +305,7 @@ void surface(Addr baseAddr) {
             isRun = false;
             break;
         }
+        ImGui::End();
 
         if (gameState) {
             Addr localPlayerAddr = mem->readA(baseAddr, OFF_LOCAL_PLAYER);
@@ -535,7 +537,7 @@ void sendWebsocket() {
                 MyContext::run(channel.second, mapObject, mapObjectCount);
             }
         }
-        _sleep(100);
+        hv_delay(100);
     }
     delete[] mapObject;
 }
@@ -590,9 +592,8 @@ void plugin() {
     std::thread eh(entityAddrsRead);
     eh.detach();
 
-    render.initImGui(L"ADM");
+    render.initImGui("ADM",0);
     // 设置显示屏幕下标(多屏幕使用)
-    render.switchMonitor(0);
     surface(baseAddr);
     render.destroyImGui();
     isRun = false;
