@@ -14,7 +14,7 @@
 void readBonePosition(MemoryToolsBase *mem, Vector3D &headPosition, Vector3D &origin, Addr player, int id);
 
 // 读取玩家名称
-void getName(MemoryToolsBase *mem, Addr baseAddr, ulong index, char *name);
+void getName(MemoryToolsBase *mem, Addr baseAddr, mulong index, char *name);
 
 // 世界坐标转屏幕坐标
 bool worldToScreen(const Vector3D &from, const float *matrix, float screenWidth,

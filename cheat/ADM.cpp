@@ -157,7 +157,7 @@ void drawPlayer(ImColor color, const OObject &player, float line_w) {
     draw->AddLine(ImVec2(left, bottom), ImVec2(right, bottom), color, line_w);
 
     // 准备显示的文本
-    std::string text = std::to_string(player.distance) + "M team:(" + std::to_string(player.distance) + ")";
+    std::string text = std::to_string(player.distance) + "M team:(" + std::to_string(player.teamId) + ")";
     std::string nameText = player.name;
 
     // 计算文本尺寸并绘制
@@ -364,7 +364,7 @@ void surface(Addr baseAddr) {
                 OObject &player = players[i];
                 ImU32 color = IM_COL32(255, 0, 0, 255);
                 do {
-                    ulong entityIndex = player.nameIndex - 1;
+                    mulong entityIndex = player.nameIndex - 1;
                     getName(mem, baseAddr, entityIndex, player.name);
                     // 团队id校验
                     if (player.teamId < 0 || player.teamId > 50) {

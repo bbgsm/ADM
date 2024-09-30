@@ -11,7 +11,7 @@
 #include "imgui_impl_win32.h"
 
 HWND hwnd;
-WNDCLASSEXW wc;
+WNDCLASSEX wc;
 
 static UINT g_ResizeWidth = 0, g_ResizeHeight = 0;
 
@@ -49,20 +49,6 @@ std::vector<MonitorInfo> getMonitors() {
     return monitors;
 }
 
-void switchMonitor(int monitorIndex) {
-    auto monitors = getMonitors();
-    if (monitorIndex >= 0 && monitorIndex < monitors.size()) {
-        const RECT &rect = monitors[monitorIndex].rcMonitor;
-        screenWidth = rect.right - rect.left;
-        screenHeight = rect.bottom - rect.top;
-        SetWindowPos(hwnd, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
-                     SWP_SHOWWINDOW);
-    } else {
-        std::cerr << "Invalid monitor index." << std::endl;
-        screenWidth = GetSystemMetrics(SM_CXSCREEN);
-        screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    }
-}
 
 // Helper functions
 bool CreateDeviceD3D(HWND hWnd) {
@@ -131,18 +117,18 @@ void CleanupRenderTarget() {
     }
 }
 
-void Render::initImGui(std::string windowName, int monitorIndex) {
+bool Render::initImGui(const std::string &windowName, int monitorIndex) {
     screenWidth = GetSystemMetrics(SM_CXSCREEN);
     screenHeight = GetSystemMetrics(SM_CYSCREEN);
     // Create application window
     wc = {
             sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L,
             GetModuleHandle(nullptr), nullptr, nullptr, nullptr,
-            nullptr, lpWindowName, nullptr
+            nullptr, windowName.c_str(), nullptr
     };
-    ::RegisterClassExW(&wc);
-    hwnd = ::CreateWindowExW(
-            WS_EX_LAYERED, wc.lpszClassName, lpWindowName,
+    ::RegisterClassEx(&wc);
+    hwnd = ::CreateWindowEx(
+            WS_EX_LAYERED, wc.lpszClassName, windowName.c_str(),
             WS_POPUP, 0, 0, screenWidth, screenHeight,
             nullptr, nullptr, wc.hInstance, nullptr
     );
@@ -152,10 +138,21 @@ void Render::initImGui(std::string windowName, int monitorIndex) {
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd)) {
         CleanupDeviceD3D();
-        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-        return;
+        ::UnregisterClass(wc.lpszClassName, wc.hInstance);
+        return false;
     }
-    switchMonitor(monitorIndex);
+    auto monitors = getMonitors();
+    if (monitorIndex >= 0 && monitorIndex < monitors.size()) {
+        const RECT &rect = monitors[monitorIndex].rcMonitor;
+        screenWidth = rect.right - rect.left;
+        screenHeight = rect.bottom - rect.top;
+        SetWindowPos(hwnd, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
+                     SWP_SHOWWINDOW);
+    } else {
+        std::cerr << "Invalid monitor index." << std::endl;
+        screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    }
     // Show the window
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
@@ -175,6 +172,7 @@ void Render::initImGui(std::string windowName, int monitorIndex) {
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+    return true;
 }
 
 void Render::destroyImGui() {
@@ -184,7 +182,7 @@ void Render::destroyImGui() {
     ImGui::DestroyContext();
     CleanupDeviceD3D();
     ::DestroyWindow(hwnd);
-    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+    ::UnregisterClass(wc.lpszClassName, wc.hInstance);
 }
 
 bool Render::drawBegin() {
@@ -213,7 +211,6 @@ bool Render::drawBegin() {
 }
 
 void Render::drawEnd() {
-    ImGui::End();
     // Rendering
     ImGui::Render();
     ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -256,7 +253,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
-#elifdef LINUX // Linux
+#else // Linux
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"

@@ -324,6 +324,7 @@
     }
 
     const ws = new WebSocket('ws://' + window.location.host);
+    // const ws = new WebSocket('ws://127.0.0.1:6888');
     ws.onmessage = function (event) {
         const players = JSON.parse(event.data);
         if (!players || players.length === 0) return;
