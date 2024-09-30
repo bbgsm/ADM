@@ -8,8 +8,15 @@ elseif (WIN32) # Windows MSVC参数
 endif ()
 
 set(CMAKE_CXX_STANDARD 20)
-# 设置输出路径为项目根目录的out
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/out")
+
+if (UNIX) # Linux
+    # 设置输出路径为项目根目录的out
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/out/${CMAKE_BUILD_TYPE}")
+
+elseif (WIN32) # Windows
+    # 设置输出路径为项目根目录的out
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/out")
+endif ()
 
 add_subdirectory(libhv)
 
