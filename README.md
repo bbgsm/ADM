@@ -20,8 +20,9 @@ Apex Dma 方框、网页地图分享, 支持Windows和Linux上运行
 编译环境: Clion + cmake + vs2022, 在 Clion 的 cmake 配置中选择vs2022编译工具链进行编译
 - Linux
 编译环境: Clion + cmake + Unix Makefiles, 在 Clion 的 cmake 配置中选择Unix Makefiles编译工具
-<br><span style="color:red">Linux 上要把 leechcore.so vmm.so leechcore_ft601_driver_linux.so 三个文件复制到 /usr/lib64/下，并且运行时候以root运行(非root大概不成功)</span>
-
+  <br/> 还需要安装: `sudo apt install libglfw3-dev`
+  <br/><span style="color:red">Linux 下编译完成后运行还需要需要把 [vmm.so] [leechcore.so] [leechcore_ft601_driver_linux.so] 三个库文件复制到/usr/lib64/下
+  并且用root权限执行<span/>
 
 # 测试环境
 #### Windows
