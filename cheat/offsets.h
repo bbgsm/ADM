@@ -24,6 +24,9 @@
 #define OFF_ORIGIN 0x017C           // 绝对坐标 xyz float
 #define OFF_HEALTH 0x0328           // 血量   int
 #define OFF_LIFE_STATE 0x0690       // 存活状态 int
+#define OFF_AIM 0x1BF4                 // 是否开镜 bool
+#define OFF_FIRE 0x1DB4                 // 是否开火 int == 1 或者 bool 开火
+#define OFF_FIRE1 0x3308                // 是否开火 int == 1 或者 bool 开火
 
 #define OFF_VIEW_ANGLES  0x2520   // 视角水平垂直角度 xy float 0 到 360
 #define OFF_VIEW_ANGLES1 0x2230   // -180 到 180
