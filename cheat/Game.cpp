@@ -28,7 +28,7 @@ void readBonePosition(MemoryToolsBase *mem, Vector3D &headPosition, Vector3D &or
         int hitboxIndex = ((ushort)(indexCache & 0xFFFE) << (4 * (indexCache & 1)));
         ushort bone = mem->readUS(hitboxIndex + hitboxArray + (id * 0x20));
         if (bone < 0 || bone > MAX_BONE_INDEX) {
-            return ;
+            return;
         }
         Addr bones = mem->readA(player, OFF_BONES);
         boneAddr = bones + bone * sizeof(matrix);
@@ -36,7 +36,7 @@ void readBonePosition(MemoryToolsBase *mem, Vector3D &headPosition, Vector3D &or
     mem->readV(matrix, sizeof(matrix), boneAddr);
     headPosition.x = matrix[0][3] + origin.x;
     headPosition.y = matrix[1][3] + origin.y;
-    headPosition.z =  matrix[2][3] + origin.z;
+    headPosition.z = matrix[2][3] + origin.z;
 }
 
 void getName(MemoryToolsBase *mem, Addr baseAddr, mulong index, char *name) {
@@ -53,8 +53,8 @@ void getName(MemoryToolsBase *mem, Addr baseAddr, mulong index, char *name) {
     memcpy(playerNames[addr], name, 32);
 }
 
-bool worldToScreen(const Vector3D &from, const float *matrix, float screenWidth,
-                   float screenHeight, VectorRect &screen) {
+bool worldToScreen(const Vector3D &from, const float *matrix, float screenWidth, float screenHeight,
+                   VectorRect &screen) {
     // 计算齐次坐标中的 w 分量，使用变换矩阵的最后一行进行点乘
     float w = matrix[12] * from.x + matrix[13] * from.y + matrix[14] * from.z + matrix[15];
     // 如果 w 小于 0.01，则点不可见，返回 false
@@ -78,9 +78,13 @@ float computeDistance(Vector3D a, Vector3D b) {
     return sqrtf(powf(b.x - a.x, 2.0F) + powf(b.y - a.y, 2.0F) + powf(b.z - a.z, 2.0F));
 }
 
+float compute2Distance(Vector2D a, Vector2D b) {
+    return sqrtf(powf(b.x - a.x, 2.0F) + powf(b.y - a.y, 2.0F));
+}
+
 void rotate(Vector2D a, Vector2D b, Vector2D &mapPosition, float viewAnglesH) {
     float angle = viewAnglesH / 360.0 * M_PI * 2.0;
-    float relativeX = (a.x - b.x) ;
+    float relativeX = (a.x - b.x);
     float relativeY = (a.y - b.y);
     mapPosition.x = relativeY * cos(angle) - relativeX * sin(angle);
     mapPosition.y = relativeY * sin(angle) + relativeX * cos(angle);
@@ -129,5 +133,7 @@ void removeInvalidUTF8(char *str) {
 
 void gameClear() {
     playerNames.clear();
-    playerBones[0].clear();
+    for (int i = 0; i < 10; i++) {
+        playerBones[i].clear();
+    }
 }

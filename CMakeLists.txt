@@ -36,11 +36,13 @@ include_directories(tools/include)
 include_directories(libhv/include)
 include_directories(libhv/include/hv)
 include_directories(dmaLibs/include)
+include_directories(kmBox)
 
 file(GLOB_RECURSE RENDER_SOURCES "render/*.cpp" "render/*.h")
 file(GLOB_RECURSE CE_PLUGIN_SOURCES "CEPlugin/*.cpp" "CEPlugin/*.h" "CEPlugin/*.hpp" "CEPlugin/*.def" "cheat/*.cpp" "cheat/*.hpp")
 file(GLOB_RECURSE CHEAT_SRC_SOURCES "cheat/*.cpp" "cheat/*.hpp" "cheat/*.h")
 file(GLOB_RECURSE TEST_GUI_SRC_SOURCES "testGui/*.cpp" "testGui/*.hpp" "testGui/*.h")
+file(GLOB_RECURSE KMBOX_SOURCES "kmBox/*.cpp" "kmBox/*.hpp" "kmBox/*.h")
 
 if (UNIX) # Linux
     file(GLOB IMGUI_SOURCES
@@ -74,6 +76,7 @@ add_executable(ADM
         ${CHEAT_SRC_SOURCES}
         ${HTTPSERVER_SOURCES}
         ${TOOLS_SOURCES}
+        ${KMBOX_SOURCES}
 )
 
 add_library(ADM_CE_Plugin SHARED

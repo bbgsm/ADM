@@ -6,6 +6,7 @@
 #include "DumpMemoryTools.h"
 #include "EventLoop.h"
 #include "Game.h"
+#include "KmboxNet.h"
 #include "MemoryToolsBase.h"
 #include "Render.h"
 #include "Vector2D.hpp"
@@ -13,6 +14,7 @@
 #include "VectorRect.hpp"
 #include "WebSocketServer.h"
 #include "hmutex.h"
+#include "ini.h"
 #include "offsets.h"
 
 MemoryToolsBase *mem;
@@ -59,6 +61,8 @@ struct OObject {
 
 // 全局运行标记
 bool isRun = true;
+// kmBox是否初始化
+bool kmBox = false;
 // 距离缩放比例
 float distanceScal = 0.025;
 // 最大玩家数量
@@ -92,12 +96,29 @@ std::mutex entityMutex;
 std::mutex objMutex;
 std::mutex webMutex;
 
+float screenCenterX = 0;
+float screenCenterY = 0;
+int autoAimX = 0;
+int autoAimY = 0;
+int aimDis = 9999999;
+bool aimAddr = 0;
+float autoAimSpeed = 5;
+
+// 辅助瞄准
+bool autoAim = false;
+
+// 是否开镜
+bool isAim = false;
+bool firstAim = true;
+
+mINI::INIStructure ini;
+mINI::INIFile *iniFile;
 
 std::map<int, std::string> mapNames = {
 {236, "3倍镜"},  {201, "紫头"},   {202, "金头"},   {195, "医疗箱"},   {280, "涡轮"},         {240, "10倍镜"},
 {194, "凤凰"},   {197, "大电"},   {224, "蓝包"},   {225, "紫包"},     {226, "金包"},         {229, "手雷"},
 {228, "铝热剂"}, {230, "电弧星"}, {329, "升级包"}, {270, "枪托(紫)"}, {258, "能量弹夹(紫)"}, {259, "能量弹夹(金)"},
-{49, "R99"},     {19, "专注"},    {132, "波赛克"}, {1, "克雷贝尔"},   {227, "手刀"},
+{49, "R99"},     {19, "专注"},    {132, "波赛克"}, {1, "克雷贝尔"},   {227, "手刀"}, /*{1564672840, "机器人"},*/
 };
 
 
@@ -205,7 +226,7 @@ void objTest() {
                     continue;
                 }
                 int itemId = mem->readI(object, OFF_ITEM_ID);
-                if (itemId <= 0 || itemId > 400 || !mapNames.contains(itemId)) {
+                if (!mapNames.contains(itemId)) {
                     continue;
                 }
                 // 物品坐标
@@ -223,6 +244,7 @@ void objTest() {
                 cacheObjects[objectIndex].isPlayer = false;
                 cacheObjects[objectIndex].itemId = itemId;
                 cacheObjects[objectIndex].distance = dis;
+                cacheObjects[objectIndex].addr = object;
                 strcpy(cacheObjects[objectIndex].name, mapNames[itemId].c_str());
                 // strcpy(cacheObjects[objectIndex].name, longToHex(object).c_str());
                 // strcpy(cacheObjects[objectIndex].name, std::to_string(itemId).c_str());
@@ -250,7 +272,8 @@ void objTest() {
 
 void surface(Addr baseAddr) {
     logInfo("screen width:%d height %d\n", render.screenWidth, render.screenHeight);
-
+    screenCenterX = render.screenWidth / 2;
+    screenCenterY = render.screenHeight / 2;
     float fx = 0;
     float fy = 0;
     float line = 1;
@@ -266,17 +289,47 @@ void surface(Addr baseAddr) {
     int playerCount = 0;
     int playerIndex = 0;
 
+    /******* kmBox初始化 *******/
+    char kmBoxIP[16] = "";
+    char kmBoxPort[6] = "";
+    char kmBoxMac[18] = "";
+
+    std::string ip = ini["kmBox"]["ip"];
+    std::string port = ini["kmBox"]["port"];
+    std::string uuid = ini["kmBox"]["uuid"];
+
+    if (!ip.empty()) {
+        strcpy(kmBoxIP, ip.c_str());
+    }
+    if (!port.empty()) {
+        strcpy(kmBoxPort, port.c_str());
+    }
+    if (!uuid.empty()) {
+        strcpy(kmBoxMac, uuid.c_str());
+    }
+    if (strlen(kmBoxIP) > 0 && strlen(kmBoxMac) > 0 && strlen(kmBoxPort) > 0) {
+        if (kmNet_init(kmBoxIP, kmBoxPort, kmBoxMac) != 0) {
+            logInfo("Failed to initialized KmBox\n");
+        } else {
+            logInfo("Successfully initialized KmBox\n");
+            kmBox = true;
+        }
+    }
+    /******* kmBox初始化 *******/
+
     while (true) {
         entityMutex.lock();
         memcpy(playerAddrs, entityAddrs, sizeof(EntityAddr) * maxPlayer);
         entityMutex.unlock();
 
         objMutex.lock();
-        memcpy(cacheObjects, swapObjects, sizeof(OObject) * objectCount);
+        if (objectCount > 0) {
+            memcpy(cacheObjects, swapObjects, sizeof(OObject) * objectCount);
+        }
         cacheObjectCount = objectCount;
         objMutex.unlock();
 
-        if(!render.drawBegin()) {
+        if (!render.drawBegin()) {
             continue;
         }
         bool gameState = mem->readB(baseAddr, OFF_GAME_STATE);
@@ -300,9 +353,33 @@ void surface(Addr baseAddr) {
         ImGui::SliderInt("最大显示物品数", &maxDisplayObjectCount, 0, 1000);
         ImGui::SliderInt("最大读取物品数", &maxObjectCount, 0, 10000);
         ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, maxPlayer, 10000);
+        ImGui::Text("kmBox配置:");
+        ImGui::Checkbox("辅助瞄准", &autoAim);
 
-        if (ImGui::Button("exit")) {
-            isRun = false;
+        ImGui::SliderFloat("瞄准速度", &autoAimSpeed, 1.0f, 20.0f, "%.0f");
+
+        if (ImGui::InputText("IP", kmBoxIP, 16)) {
+            ini["kmBox"]["ip"] = kmBoxIP;
+            iniFile->write(ini);
+        }
+        if (ImGui::InputText("PORT", kmBoxPort, 18)) {
+            ini["kmBox"]["port"] = kmBoxPort;
+            iniFile->write(ini);
+        }
+        if (ImGui::InputText("UUID", kmBoxMac, 18)) {
+            ini["kmBox"]["uuid"] = kmBoxMac;
+            iniFile->write(ini);
+        }
+        if (ImGui::Button(kmBox ? "已连接" : "连接")) {
+            if (kmNet_init(kmBoxIP, kmBoxPort, kmBoxMac) != 0) {
+                logInfo("Failed to initialized KmBox\n");
+            } else {
+                logInfo("Successfully initialized KmBox\n");
+                kmBox = true;
+            }
+        }
+
+        if (ImGui::Button("退出程序")) {
             break;
         }
         ImGui::End();
@@ -319,6 +396,7 @@ void surface(Addr baseAddr) {
             mem->addScatterReadV(handle, &localPlayer.nameIndex, sizeof(int), localPlayerAddr, OFF_INDEX_IN_NAMELIST);
             mem->addScatterReadV(handle, &localPlayer.itemId, sizeof(int), localPlayerAddr, OFF_ITEM_ID);
             mem->addScatterReadV(handle, &localPlayer.viewAngles, sizeof(Vector2D), localPlayerAddr, OFF_VIEW_ANGLES5);
+            mem->addScatterReadV(handle, &isAim, sizeof(bool), localPlayerAddr, OFF_AIM);
 
             mem->executeReadScatter(handle);
             mem->closeScatterHandle(handle);
@@ -385,13 +463,14 @@ void surface(Addr baseAddr) {
                     // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
                     // player.health = ((health + shieldHealth) / (maxShieldHealth + maxHealth)) / 100
                     player.health = static_cast<int>((static_cast<float>(player.health + player.shieldHealth[0]) /
-                                                      (/* max health */ 100.0F + player.shieldHealth[1])) * 100.0F);
+                                                      (/* max health */ 100.0F + player.shieldHealth[1])) *
+                                                     100.0F);
                     if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight,
                                        player.screenPosition)) {
                         break;
                     }
                     // 读取头部骨骼坐标
-                    readBonePosition(mem, player.headPosition, player.playerPosition, player.addr, 0);
+                    readBonePosition(mem, player.headPosition, player.playerPosition, player.addr, 1);
                     VectorRect headScreenPosition;
                     worldToScreen(player.headPosition, matrix, render.screenWidth, render.screenHeight,
                                   headScreenPosition);
@@ -399,11 +478,35 @@ void surface(Addr baseAddr) {
                     player.screenPosition.w = player.screenPosition.h / 2.0f;
                     player.screenPosition.x += fx;
                     player.screenPosition.y += fy - player.screenPosition.h;
-                    if (player.lifeState != 0) {
+                    int d = compute2Distance({player.screenPosition.x, player.screenPosition.y},
+                                             {screenCenterX, screenCenterY});
+                    // 选择离准心最近的可见玩家 距离200像素内
+                    if (autoAim && isAim && d < 200 && player.lastVisTime > lastVisTimes[i]) {
+                        if (firstAim && d < aimDis) {
+                            autoAimX = player.screenPosition.x - screenCenterX;
+                            autoAimY = player.screenPosition.y - screenCenterY;
+                            aimAddr = player.addr;
+                            aimDis = d;
+                        } else if (aimAddr == player.addr) {
+                            autoAimX = player.screenPosition.x - screenCenterX;
+                            autoAimY = player.screenPosition.y - screenCenterY;
+                        }
+                    } else {
+                        aimDis = 9999999;
+                        aimAddr = 0;
+                        firstAim = true;
+                    }
+                    if (aimAddr != 0) {
+                        // 辅助瞄准选中颜色
+                        color = IM_COL32(0, 255, 0, 255);
+                    } else if (player.lifeState != 0) {
+                        // 玩家存活颜色
                         color = IM_COL32(51, 255, 255, 255);
                     } else if (player.lastVisTime > lastVisTimes[i]) {
+                        // 玩家可见颜色
                         color = IM_COL32(255, 255, 0, 255);
                     } else {
+                        // 玩家死亡颜色
                         color = IM_COL32(255, 0, 0, 255);
                     }
                     logDebug("playerAddr: %llX index: %d name:%s\n", player.addr, player.nameIndex, player.name);
@@ -412,7 +515,6 @@ void surface(Addr baseAddr) {
                     playerCount++;
                 } while (false);
             }
-
             // 读取矩阵
             mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
             for (int j = 0; j < cacheObjectCount; j++) {
@@ -424,7 +526,8 @@ void surface(Addr baseAddr) {
                 cacheObjects[j].distance = dis;
                 drawObject(IM_COL32(255, 255, 255, 255), cacheObjects[j]);
             }
-            if (objectCount > 0) {
+            if (isAim && firstAim) {
+                firstAim = false;
             }
             webMutex.lock();
             memcpy(mapObjectCache, players, sizeof(OObject) * playerIndex);
@@ -549,12 +652,6 @@ void websocketServer() {
         logInfo("onopen: GET %s\n", req->Path().c_str());
         auto ctx = channel->newContextPtr<MyContext>();
         channels[channel.get()] = (channel.get());
-        // send(time) every 100ms
-        // ctx->timerID = setInterval(100, [channel](TimerID id) {
-        //     if (channel->isConnected() && channel->isWriteComplete()) {
-        //         MyContext::run(channel);
-        //     }
-        // });
     };
     wws.onmessage = [](const WebSocketChannelPtr &channel, const std::string &msg) {
         auto ctx = channel->getContextPtr<MyContext>();
@@ -579,6 +676,40 @@ void websocketServer() {
     sendWebsocketTh.detach();
 }
 
+// 自瞄线程
+void autoAimThread() {
+    while (isRun) {
+        if (kmBox && isAim && (autoAimX != 0 || autoAimY != 0)) {
+            // 曲线公式
+            float xx = autoAimSpeed / 10 * sqrt(abs(autoAimX));
+            float yy = autoAimSpeed / 10 * sqrt(abs(autoAimY));
+            if (xx > 100) {
+                xx = 100;
+            }
+            if (yy > 100) {
+                yy = 100;
+            }
+            xx = xx * (autoAimX > 0 ? 1 : -1);
+            yy = yy * (autoAimY > 0 ? 1 : -1);
+            logDebug("aAddr: %llX x:%f y: %f\n", aimAddr, xx, yy);
+            // 消抖
+            if (abs(xx) < 2) {
+                xx = 0;
+            }
+            // 消抖
+            if (abs(yy) < 2) {
+                yy = 0;
+            }
+            if (yy != 0 || xx != 0) {
+                kmNet_mouse_move(static_cast<short>(xx), static_cast<short>(yy));
+            }
+            autoAimX = 0;
+            autoAimY = 0;
+        }
+        hv_delay(10);
+    }
+}
+
 void plugin() {
     const Addr baseAddr = mem->getBaseAddr();
     logInfo("Pid: %d\n", mem->getProcessPid());
@@ -592,7 +723,10 @@ void plugin() {
     std::thread eh(entityAddrsRead);
     eh.detach();
 
-    render.initImGui("ADM",0);
+    std::thread ah(autoAimThread);
+    ah.detach();
+
+    render.initImGui("ADM", 0);
     // 设置显示屏幕下标(多屏幕使用)
     surface(baseAddr);
     render.destroyImGui();
@@ -601,12 +735,18 @@ void plugin() {
 
 
 int main() {
+    iniFile = new mINI::INIFile("config.ini");
+    if (!iniFile->read(ini)) {
+        iniFile->write(ini);
+    }
     // 可以直接在游戏电脑上读取内存（不怕封号就逝逝）
     // mem = new DirectMemoryTools();
     // Dma读取内存
     mem = new DmaMemoryTools();
     if (!mem->init("r5apex.exe")) {
         logInfo("Failed to initialized DMA\n");
+    } else {
+        logInfo("Successfully initialized DMA\n");
     }
     // 读取Dump的内存
     // mem = new DumpMemoryTools();
@@ -616,6 +756,7 @@ int main() {
     //     logInfo("Dump initialized\n");
     // }
     plugin();
+    delete iniFile;
     delete mem;
     delete[] entityAddrs;
     delete[] swapObjects;

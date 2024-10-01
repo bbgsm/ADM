@@ -23,6 +23,8 @@ bool worldToScreen(const Vector3D &from, const float *matrix, float screenWidth,
 // 两个3d坐标距离
 float computeDistance(Vector3D a, Vector3D b);
 
+float compute2Distance(Vector2D a, Vector2D b);
+
 // 坐标旋转转换
 void rotate(Vector2D a, Vector2D b, Vector2D &mapPosition, float viewAnglesH) ;
 

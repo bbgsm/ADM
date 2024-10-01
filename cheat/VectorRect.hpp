@@ -16,4 +16,8 @@ struct VectorRect {
         w = _w;
         h = _h;
     }
+
+    Vector2D toVector2D() const {
+        return Vector2D(x, y);
+    }
 };

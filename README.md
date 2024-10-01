@@ -1,7 +1,8 @@
 # ADM
-Apex Dma 方框、网页地图分享, 支持Windows和Linux上运行
+Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运行
 # 图片
-
+# 注意
+- 辅助瞄准顾名思义就是用来辅助的，如果想完全当自瞄用，就把瞄准速度拉满，拉满不出一天号就没了
 * 方框
 <br> <img src="img/player.jpg" width="800">
 * 物品
@@ -46,3 +47,4 @@ Apex Dma 方框、网页地图分享, 支持Windows和Linux上运行
 * [libhv(C++网络工具)](https://github.com/ithewei/libhv)
 * [imgui(C++绘制)](https://github.com/ocornut/imgui)
 * [MemTools(内存读写、dump工具)](https://github.com/bbgsm/MemTools)
+* [mINI(ini配置文件工具)](https://github.com/metayeti/mINI.git)
