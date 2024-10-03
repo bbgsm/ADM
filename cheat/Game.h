@@ -17,8 +17,8 @@ void readBonePosition(MemoryToolsBase *mem, Vector3D &headPosition, Vector3D &or
 void getName(MemoryToolsBase *mem, Addr baseAddr, mulong index, char *name);
 
 // 世界坐标转屏幕坐标
-bool worldToScreen(const Vector3D &from, const float *matrix, float screenWidth,
-                   float screenHeight, VectorRect &screen);
+bool worldToScreen(const Vector3D &from, const float *matrix, float screenWidth, float screenHeight,
+                   VectorRect &screen);
 
 // 两个3d坐标距离
 float computeDistance(Vector3D a, Vector3D b);
@@ -26,7 +26,7 @@ float computeDistance(Vector3D a, Vector3D b);
 float compute2Distance(Vector2D a, Vector2D b);
 
 // 坐标旋转转换
-void rotate(Vector2D a, Vector2D b, Vector2D &mapPosition, float viewAnglesH) ;
+void rotate(Vector2D a, Vector2D b, Vector2D &mapPosition, float viewAnglesH);
 
 // 移除非utf8字符
 void removeInvalidUTF8(char *str);

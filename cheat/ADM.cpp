@@ -1,6 +1,7 @@
 #include <iostream>
 #include <map>
 // #define DEBUG_INFO
+#include <random>
 #include "DirectMemoryTools.h"
 #include "DmaMemoryTools.h"
 #include "DumpMemoryTools.h"
@@ -67,6 +68,13 @@ bool kmBox = false;
 float distanceScal = 0.025;
 // 最大玩家数量
 const int maxPlayer = 100;
+std::map<Addr, float> lastVisTimeMap;
+
+float fx = 0;
+float fy = 0;
+float line = 1;
+float range = 300;
+float matrix[16];
 
 /*** 玩家、物资 ***/
 OObject *mapObjectCache = new OObject[1100];
@@ -98,18 +106,22 @@ std::mutex webMutex;
 
 float screenCenterX = 0;
 float screenCenterY = 0;
-int autoAimX = 0;
-int autoAimY = 0;
-int aimDis = 9999999;
-bool aimAddr = 0;
-float autoAimSpeed = 5;
+int aimBotX = 0;
+int aimBotY = 0;
+int aimDis = 999999999;
+float aimRandomX = 0;
+float aimRandomY = 0;
+mlong aimTime = 0;
+Addr aimAddr = 0;
+float aimBotSpeed = 5;
+// 自瞄随机部分刷新间隔(毫秒)
+mlong aimRandomRefreshDelay = 500;
 
 // 辅助瞄准
-bool autoAim = false;
+bool aimBot = true;
 
 // 是否开镜
 bool isAim = false;
-bool firstAim = true;
 
 mINI::INIStructure ini;
 mINI::INIFile *iniFile;
@@ -121,6 +133,21 @@ std::map<int, std::string> mapNames = {
 {49, "R99"},     {19, "专注"},    {132, "波赛克"}, {1, "克雷贝尔"},   {227, "手刀"}, /*{1564672840, "机器人"},*/
 };
 
+
+int generateRandomNumber(int min, int max) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution dis(min, max);
+    return dis(gen);
+}
+
+
+// 获取系统时间
+mlong getCurrentTime() {
+    timeval tv{};
+    gettimeofday(&tv, nullptr);
+    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+}
 
 void drawObject(ImColor color, const OObject &object) {
     float x = object.screenPosition.x;
@@ -226,9 +253,11 @@ void objTest() {
                     continue;
                 }
                 int itemId = mem->readI(object, OFF_ITEM_ID);
-                if (!mapNames.contains(itemId)) {
+                int isBot = mem->readI(object, OFF_BOT);
+                if (!mapNames.contains(itemId) && isBot != 2) {
                     continue;
                 }
+                cacheObjects[objectIndex].isPlayer = isBot == 2;
                 // 物品坐标
                 mem->readV(&cacheObjects[objectIndex].playerPosition, sizeof(Vector3D), object, OFF_ORIGIN);
                 if (cacheObjects[objectIndex].playerPosition.isZero()) {
@@ -241,11 +270,14 @@ void objTest() {
                     continue;
                 }
                 std::string str = std::to_string(itemId);
-                cacheObjects[objectIndex].isPlayer = false;
                 cacheObjects[objectIndex].itemId = itemId;
                 cacheObjects[objectIndex].distance = dis;
                 cacheObjects[objectIndex].addr = object;
-                strcpy(cacheObjects[objectIndex].name, mapNames[itemId].c_str());
+                if (cacheObjects[objectIndex].isPlayer) {
+                    strcpy(cacheObjects[objectIndex].name, "机器人");
+                } else {
+                    strcpy(cacheObjects[objectIndex].name, mapNames[itemId].c_str());
+                }
                 // strcpy(cacheObjects[objectIndex].name, longToHex(object).c_str());
                 // strcpy(cacheObjects[objectIndex].name, std::to_string(itemId).c_str());
                 objectIndex++;
@@ -270,17 +302,111 @@ void objTest() {
     delete[] cacheObjects;
 }
 
+bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *color) {
+    mulong entityIndex = player.nameIndex - 1;
+    getName(mem, baseAddr, entityIndex, player.name);
+    // 团队id校验
+    if (player.teamId < 0 || player.teamId > 100) {
+        return false;
+    }
+    if (player.health <= 0) {
+        // 人物死亡重置自瞄数据
+        if (aimAddr == player.addr) {
+            aimDis = 999999999;
+            aimAddr = 0;
+            aimRandomY = 0;
+            aimRandomX = 0;
+        }
+        return false;
+    }
+    // 跳过队友
+    if (player.teamId == localPlayer.teamId) {
+        return false;
+    }
+    // 超过范围跳过
+    float dis = computeDistance(localPlayer.playerPosition, player.playerPosition) * distanceScal;
+    if (dis > range) {
+        return false;
+    }
+    // 读取矩阵
+    mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
+    player.distance = dis;
+    // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
+    // player.health = ((health + shieldHealth) / (maxShieldHealth + maxHealth)) / 100
+    player.health = static_cast<int>(
+    (static_cast<float>(player.health + player.shieldHealth[0]) / (/* max health */ 100.0F + player.shieldHealth[1])) *
+    100.0F);
+    if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight, player.screenPosition)) {
+        return false;
+    }
+    // 读取头部骨骼坐标
+    readBonePosition(mem, player.headPosition, player.playerPosition, player.addr, 0);
+    VectorRect headScreenPosition;
+    worldToScreen(player.headPosition, matrix, render.screenWidth, render.screenHeight, headScreenPosition);
+    player.screenPosition.h = abs(abs(player.screenPosition.y) - abs(headScreenPosition.y));
+    player.screenPosition.w = player.screenPosition.h / 2.0f;
+    player.screenPosition.x += fx;
+    player.screenPosition.y += fy - player.screenPosition.h;
+    int d = compute2Distance({player.screenPosition.x, player.screenPosition.y}, {screenCenterX, screenCenterY});
+    // 如果盒子初始化完成和开镜
+    if (aimBot && isAim && player.lastVisTime > lastVisTimeMap[player.addr]) {
+        // 玩家在准心范围200像素内的才进行自瞄操作
+        if (d < 200) {
+            if (aimAddr == 0 && d < aimDis) {
+                /* 首次自瞄选中 */
+                aimBotX = player.screenPosition.x - screenCenterX;
+                aimBotY = player.screenPosition.y - screenCenterY;
+                aimAddr = player.addr;
+                aimDis = d;
+            } else if (aimAddr == player.addr) {
+                /* 持续自瞄选中 */
+                mlong time = getCurrentTime();
+                if ((time - aimTime) > aimRandomRefreshDelay) {
+                    aimRandomY = static_cast<float>(generateRandomNumber(0, player.screenPosition.h));
+                    aimRandomX =
+                    static_cast<float>(generateRandomNumber(0, player.screenPosition.w)) - player.screenPosition.w / 2;
+                    aimTime = time;
+                    logDebug("randomX:%f randomY: %f\n", aimRandomX, aimRandomY);
+                }
+                aimBotX = player.screenPosition.x - screenCenterX + aimRandomX;
+                aimBotY = player.screenPosition.y - screenCenterY + aimRandomY;
+            }
+        } else if (aimAddr == player.addr) {
+            aimDis = 999999999;
+            aimAddr = 0;
+            aimRandomY = 0;
+            aimRandomX = 0;
+        }
+    } else {
+        aimDis = 999999999;
+        aimAddr = 0;
+        aimRandomY = 0;
+        aimRandomX = 0;
+    }
+
+    if (aimAddr == player.addr) {
+        // 辅助瞄准选中颜色
+        *color = IM_COL32(0, 255, 0, 255);
+    } else if (player.lifeState != 0) {
+        // 玩家存活颜色
+        *color = IM_COL32(51, 255, 255, 255);
+    } else if (player.lastVisTime > lastVisTimeMap[player.addr]) {
+        // 玩家可见颜色
+        *color = IM_COL32(255, 255, 0, 255);
+    } else {
+        // 玩家死亡颜色
+        *color = IM_COL32(255, 0, 0, 255);
+    }
+    logDebug("playerAddr: %llX index: %d name:%s\n", player.addr, player.nameIndex, player.name);
+    lastVisTimeMap[player.addr] = player.lastVisTime;
+    return true;
+}
 void surface(Addr baseAddr) {
     logInfo("screen width:%d height %d\n", render.screenWidth, render.screenHeight);
     screenCenterX = render.screenWidth / 2;
     screenCenterY = render.screenHeight / 2;
-    float fx = 0;
-    float fy = 0;
-    float line = 1;
-    float range = 300;
-    float matrix[16];
 
-    float lastVisTimes[maxPlayer] = {0};
+
     auto *players = new OObject[maxPlayer];
     auto *playerAddrs = new EntityAddr[maxPlayer];
     auto *cacheObjects = new OObject[1000];
@@ -354,9 +480,9 @@ void surface(Addr baseAddr) {
         ImGui::SliderInt("最大读取物品数", &maxObjectCount, 0, 10000);
         ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, maxPlayer, 10000);
         ImGui::Text("kmBox配置:");
-        ImGui::Checkbox("辅助瞄准", &autoAim);
+        ImGui::Checkbox("辅助瞄准", &aimBot);
 
-        ImGui::SliderFloat("瞄准速度", &autoAimSpeed, 1.0f, 20.0f, "%.0f");
+        ImGui::SliderFloat("瞄准速度", &aimBotSpeed, 1.0f, 20.0f, "%.0f");
 
         if (ImGui::InputText("IP", kmBoxIP, 16)) {
             ini["kmBox"]["ip"] = kmBoxIP;
@@ -441,93 +567,49 @@ void surface(Addr baseAddr) {
             for (int i = 0; i < playerIndex; i++) {
                 OObject &player = players[i];
                 ImU32 color = IM_COL32(255, 0, 0, 255);
-                do {
-                    mulong entityIndex = player.nameIndex - 1;
-                    getName(mem, baseAddr, entityIndex, player.name);
-                    // 团队id校验
-                    if (player.teamId < 0 || player.teamId > 50) {
-                        break;
-                    }
-                    // 跳过队友
-                    if (player.teamId == localPlayer.teamId) {
-                        break;
-                    }
-                    // 超过范围跳过
-                    float dis = computeDistance(localPlayer.playerPosition, player.playerPosition) * distanceScal;
-                    if (dis > range) {
-                        break;
-                    }
-                    // 读取矩阵
-                    mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
-                    player.distance = dis;
-                    // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
-                    // player.health = ((health + shieldHealth) / (maxShieldHealth + maxHealth)) / 100
-                    player.health = static_cast<int>((static_cast<float>(player.health + player.shieldHealth[0]) /
-                                                      (/* max health */ 100.0F + player.shieldHealth[1])) *
-                                                     100.0F);
-                    if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight,
-                                       player.screenPosition)) {
-                        break;
-                    }
-                    // 读取头部骨骼坐标
-                    readBonePosition(mem, player.headPosition, player.playerPosition, player.addr, 1);
-                    VectorRect headScreenPosition;
-                    worldToScreen(player.headPosition, matrix, render.screenWidth, render.screenHeight,
-                                  headScreenPosition);
-                    player.screenPosition.h = abs(abs(player.screenPosition.y) - abs(headScreenPosition.y));
-                    player.screenPosition.w = player.screenPosition.h / 2.0f;
-                    player.screenPosition.x += fx;
-                    player.screenPosition.y += fy - player.screenPosition.h;
-                    int d = compute2Distance({player.screenPosition.x, player.screenPosition.y},
-                                             {screenCenterX, screenCenterY});
-                    // 选择离准心最近的可见玩家 距离200像素内
-                    if (autoAim && isAim && d < 200 && player.lastVisTime > lastVisTimes[i]) {
-                        if (firstAim && d < aimDis) {
-                            autoAimX = player.screenPosition.x - screenCenterX;
-                            autoAimY = player.screenPosition.y - screenCenterY;
-                            aimAddr = player.addr;
-                            aimDis = d;
-                        } else if (aimAddr == player.addr) {
-                            autoAimX = player.screenPosition.x - screenCenterX;
-                            autoAimY = player.screenPosition.y - screenCenterY;
-                        }
-                    } else {
-                        aimDis = 9999999;
-                        aimAddr = 0;
-                        firstAim = true;
-                    }
-                    if (aimAddr != 0) {
-                        // 辅助瞄准选中颜色
-                        color = IM_COL32(0, 255, 0, 255);
-                    } else if (player.lifeState != 0) {
-                        // 玩家存活颜色
-                        color = IM_COL32(51, 255, 255, 255);
-                    } else if (player.lastVisTime > lastVisTimes[i]) {
-                        // 玩家可见颜色
-                        color = IM_COL32(255, 255, 0, 255);
-                    } else {
-                        // 玩家死亡颜色
-                        color = IM_COL32(255, 0, 0, 255);
-                    }
-                    logDebug("playerAddr: %llX index: %d name:%s\n", player.addr, player.nameIndex, player.name);
+                if (readPlayer(player, localPlayer, baseAddr, &color)) {
                     drawPlayer(color, player, line);
-                    lastVisTimes[i] = player.lastVisTime;
                     playerCount++;
-                } while (false);
+                }
             }
             // 读取矩阵
             mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
+            handle = mem->createScatter();
+
             for (int j = 0; j < cacheObjectCount; j++) {
-                if (!worldToScreen(cacheObjects[j].playerPosition, matrix, render.screenWidth, render.screenHeight,
-                                   cacheObjects[j].screenPosition)) {
-                    continue;
-                }
-                float dis = computeDistance(localPlayerPosition, cacheObjects[j].playerPosition) * distanceScal;
-                cacheObjects[j].distance = dis;
-                drawObject(IM_COL32(255, 255, 255, 255), cacheObjects[j]);
+                mem->addScatterReadV(handle, &cacheObjects[j].teamId, sizeof(int), cacheObjects[j].addr, OFF_TEAM);
+                mem->addScatterReadV(handle, &cacheObjects[j].itemId, sizeof(int), cacheObjects[j].addr, OFF_ITEM_ID);
+                mem->addScatterReadV(handle, &cacheObjects[j].playerPosition, sizeof(Vector3D), cacheObjects[j].addr,
+                                     OFF_ORIGIN);
+                mem->addScatterReadV(handle, &cacheObjects[j].viewAngles, sizeof(Vector2D), cacheObjects[j].addr,
+                                     OFF_VIEW_ANGLES1);
+                mem->addScatterReadV(handle, &cacheObjects[j].lastVisTime, sizeof(float), cacheObjects[j].addr,
+                                     OFF_VISIBLE_TIME);
+                mem->addScatterReadV(handle, &cacheObjects[j].lifeState, sizeof(int), cacheObjects[j].addr,
+                                     OFF_LIFE_STATE);
+                mem->addScatterReadV(handle, &cacheObjects[j].nameIndex, sizeof(int), cacheObjects[j].addr,
+                                     OFF_INDEX_IN_NAMELIST);
+                mem->addScatterReadV(handle, &cacheObjects[j].health, sizeof(int), cacheObjects[j].addr, OFF_HEALTH);
+                mem->addScatterReadV(handle, cacheObjects[j].shieldHealth, sizeof(cacheObjects[j].shieldHealth),
+                                     cacheObjects[j].addr, OFF_SHIELD);
             }
-            if (isAim && firstAim) {
-                firstAim = false;
+            mem->executeReadScatter(handle);
+            mem->closeScatterHandle(handle);
+            for (int j = 0; j < cacheObjectCount; j++) {
+                if (cacheObjects[j].isPlayer) { // 机器人bot
+                    ImU32 color = IM_COL32(255, 0, 0, 255);
+                    if (readPlayer(cacheObjects[j], localPlayer, baseAddr, &color)) {
+                        drawPlayer(color, cacheObjects[j], line);
+                    }
+                } else {
+                    if (!worldToScreen(cacheObjects[j].playerPosition, matrix, render.screenWidth, render.screenHeight,
+                                       cacheObjects[j].screenPosition)) {
+                        continue;
+                    }
+                    float dis = computeDistance(localPlayerPosition, cacheObjects[j].playerPosition) * distanceScal;
+                    cacheObjects[j].distance = dis;
+                    drawObject(IM_COL32(255, 255, 255, 255), cacheObjects[j]);
+                }
             }
             webMutex.lock();
             memcpy(mapObjectCache, players, sizeof(OObject) * playerIndex);
@@ -538,6 +620,7 @@ void surface(Addr baseAddr) {
             webMutex.unlock();
             if (playerCount == 0) {
                 gameClear();
+                lastVisTimeMap.clear();
             }
             playerIndex = 0;
             playerCount = 0;
@@ -644,8 +727,9 @@ void sendWebsocket() {
     }
     delete[] mapObject;
 }
+
 void websocketServer() {
-    int port = 6888;
+    int port = 5123;
     http.GET("/ping", [](const HttpContextPtr &ctx) { return ctx->send("pong", TEXT_HTML); });
     http.Static("/", "webMap");
     wws.onopen = [](const WebSocketChannelPtr &channel, const HttpRequestPtr &req) {
@@ -677,21 +761,21 @@ void websocketServer() {
 }
 
 // 自瞄线程
-void autoAimThread() {
+void aimBotThread() {
     while (isRun) {
-        if (kmBox && isAim && (autoAimX != 0 || autoAimY != 0)) {
+        if (kmBox && aimAddr != 0 && (aimBotX != 0 || aimBotY != 0)) {
             // 曲线公式
-            float xx = autoAimSpeed / 10 * sqrt(abs(autoAimX));
-            float yy = autoAimSpeed / 10 * sqrt(abs(autoAimY));
+            float xx = aimBotSpeed / 10 * sqrt(abs(aimBotX));
+            float yy = aimBotSpeed / 10 * sqrt(abs(aimBotY));
             if (xx > 100) {
                 xx = 100;
             }
             if (yy > 100) {
                 yy = 100;
             }
-            xx = xx * (autoAimX > 0 ? 1 : -1);
-            yy = yy * (autoAimY > 0 ? 1 : -1);
-            logDebug("aAddr: %llX x:%f y: %f\n", aimAddr, xx, yy);
+            xx = xx * (aimBotX > 0 ? 1 : -1);
+            yy = yy * (aimBotY > 0 ? 1 : -1);
+            // logInfo("aAddr: %llX x:%f y: %f\n", aimAddr, xx, yy);
             // 消抖
             if (abs(xx) < 2) {
                 xx = 0;
@@ -703,8 +787,8 @@ void autoAimThread() {
             if (yy != 0 || xx != 0) {
                 kmNet_mouse_move(static_cast<short>(xx), static_cast<short>(yy));
             }
-            autoAimX = 0;
-            autoAimY = 0;
+            aimBotX = 0;
+            aimBotY = 0;
         }
         hv_delay(10);
     }
@@ -723,7 +807,7 @@ void plugin() {
     std::thread eh(entityAddrsRead);
     eh.detach();
 
-    std::thread ah(autoAimThread);
+    std::thread ah(aimBotThread);
     ah.detach();
 
     render.initImGui("ADM", 0);

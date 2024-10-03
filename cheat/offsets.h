@@ -2,31 +2,34 @@
 // 游戏版本: v3.0.81.36
 
 /*** r5apex.exe 偏移  ***/
-#define OFF_GAME_STATE 0x1EC1FC0    // 对局是否进行 bool
-#define OFF_ENTITY_LIST 0x1F61048  // 对象数组(玩家，物品) 大小10000 * 32
-#define OFF_LOCAL_PLAYER 0x24342B8  // 操作玩家指针
+#define OFF_GAME_STATE 0x1EC1FC0     // 对局是否进行 bool
+#define OFF_ENTITY_LIST 0x1F61048    // 对象数组(玩家，物品) 大小10000 * 32
+#define OFF_LOCAL_PLAYER 0x24342B8   // 操作玩家指针
 #define OFF_NAME_LIST 0xD426160      // 名称字典指针
-#define OFF_MATRIX1 0x2429450       // 4x4矩阵 float[16]
+#define OFF_MATRIX1 0x2429450        // 4x4矩阵 float[16]
 #define OFF_LEVEL_NAME 0x18356C4     // 对局名称
 /*** r5apex.exe 偏移 ***/
 
 /*** 玩家，物品 偏移 ***/
-#define OFF_VISIBLE_TIME 0x19A0     // 最后可见时间 float(一直可见数值一直会增大)
-#define OFF_ITEM_ID 0x1568          // 物品id int
+#define OFF_INDEX_IN_NAMELIST 0x38  // 名称下标
+#define OFF_ORIGIN 0x17C            // 绝对坐标 xyz float
+#define OFF_SHIELD 0x1A0            // 盾  int
+#define OFF_MAX_SHIELD 0x1A4        // 盾最大值 int
+#define OFF_HEALTH 0x328            // 血量   int
+#define OFF_TEAM 0x0338             // 团队id int
+#define OFF_NAME 0x0481             // 对象名称 string
+#define OFF_LIFE_STATE 0x690        // 存活状态 int
 #define OFF_BONES 0xDF8             // 骨骼指针
 #define OFF_STUDIO_HDR 0x1000
-#define OFF_INDEX_IN_NAMELIST 0x38  // 名称下标
-#define OFF_TEAM 0x0338             // 团队id int
-#define OFF_SHIELD 0x01a0           // 盾  int
-#define OFF_MAX_SHIELD 0x01A4        // 盾最大值 int
+#define OFF_AIM 0x1BF4              // 是否开镜 bool
+#define OFF_ITEM_ID 0x1568          // 物品id int
+#define OFF_VISIBLE_TIME 0x19A0     // 最后可见时间 float(一直可见数值一直会增大)
 #define OFF_ARMOR_TYPE  0x46C4      // 盾类型
-#define OFF_NAME 0x0481             // 对象名称 string
-#define OFF_ORIGIN 0x017C           // 绝对坐标 xyz float
-#define OFF_HEALTH 0x0328           // 血量   int
-#define OFF_LIFE_STATE 0x0690       // 存活状态 int
-#define OFF_AIM 0x1BF4                 // 是否开镜 bool
-#define OFF_FIRE 0x1DB4                 // 是否开火 int == 1 或者 bool 开火
-#define OFF_FIRE1 0x3308                // 是否开火 int == 1 或者 bool 开火
+
+#define OFF_FIRE 0x1DB4             // 是否开火 int == 1 开火
+#define OFF_FIRE1 0x3308            // 是否开火 int == 1 开火
+
+#define OFF_BOT 0x1560             // int == 2 可能等于 机器人
 
 #define OFF_VIEW_ANGLES  0x2520   // 视角水平垂直角度 xy float 0 到 360
 #define OFF_VIEW_ANGLES1 0x2230   // -180 到 180

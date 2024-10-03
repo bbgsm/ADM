@@ -98,6 +98,7 @@ add_executable(blockScreen
 
 add_executable(test
         test.cpp
+        cheat/Game.cpp
         ${MEMORY_TOOLS_SOURCES}
         ${RENDER_SOURCES}
         ${IMGUI_SOURCES}
