@@ -116,7 +116,14 @@ Addr aimAddr = 0;
 float aimBotSpeed = 5;
 // 自瞄随机部分刷新间隔(毫秒)
 mlong aimRandomRefreshDelay = 500;
+// 记录上一次循环玩家位置
+Vector3D lastPosition;
+Vector3D lastHeadPosition;
+// 坐标预测
+Vector3D positionPrediction;
+Vector3D headPositionPrediction;
 
+mlong cctime = 0;
 // 辅助瞄准
 bool aimBot = true;
 
@@ -133,6 +140,16 @@ std::map<int, std::string> mapNames = {
 {49, "R99"},     {19, "专注"},    {132, "波赛克"}, {1, "克雷贝尔"},   {227, "手刀"}, /*{1564672840, "机器人"},*/
 };
 
+// 重置自瞄参数
+void resetAimBot() {
+    aimDis = 999999999;
+    aimAddr = 0;
+    aimRandomY = 0;
+    aimRandomX = 0;
+    cctime = 0;
+    lastPosition = {0, 0, 0};
+    positionPrediction = {0, 0, 0};
+}
 
 int generateRandomNumber(int min, int max) {
     std::random_device rd;
@@ -296,7 +313,7 @@ void objTest() {
             objectCount = 0;
         }
         // 延时10秒
-        hv_delay(10000);
+        hv_delay(5000);
     }
     delete[] objectAddrs;
     delete[] cacheObjects;
@@ -312,10 +329,7 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     if (player.health <= 0) {
         // 人物死亡重置自瞄数据
         if (aimAddr == player.addr) {
-            aimDis = 999999999;
-            aimAddr = 0;
-            aimRandomY = 0;
-            aimRandomX = 0;
+            resetAimBot();
         }
         return false;
     }
@@ -336,9 +350,36 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     player.health = static_cast<int>(
     (static_cast<float>(player.health + player.shieldHealth[0]) / (/* max health */ 100.0F + player.shieldHealth[1])) *
     100.0F);
-    if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight, player.screenPosition)) {
-        return false;
+
+    /**** 自瞄预测 ****/
+    // 延迟150ms左右计算两次坐标距离作为预测值并相加到每一帧上
+    mlong time = getCurrentTime();
+    if (aimAddr == player.addr) {
+        if (time - cctime > 150 /* 150ms*/) {
+            if (lastPosition.isZero()) {
+                lastPosition = player.playerPosition;
+                if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight,
+                                   player.screenPosition)) {
+                    return false;
+                }
+            } else {
+                positionPrediction = player.playerPosition - lastPosition;
+                lastPosition = player.playerPosition;
+            }
+            cctime = time;
+        }
+        if (!worldToScreen(positionPrediction + player.playerPosition, matrix, render.screenWidth, render.screenHeight,
+                           player.screenPosition)) {
+            return false;
+        }
+    } else {
+        if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight,
+                           player.screenPosition)) {
+            return false;
+        }
     }
+    /**** 自瞄预测 ****/
+
     // 读取头部骨骼坐标
     readBonePosition(mem, player.headPosition, player.playerPosition, player.addr, 0);
     VectorRect headScreenPosition;
@@ -349,39 +390,31 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     player.screenPosition.y += fy - player.screenPosition.h;
     int d = compute2Distance({player.screenPosition.x, player.screenPosition.y}, {screenCenterX, screenCenterY});
     // 如果盒子初始化完成和开镜
-    if (aimBot && isAim && player.lastVisTime > lastVisTimeMap[player.addr]) {
+    // 通过人物是否可见还判断自瞄还有点bug，先注释
+    if (aimBot && isAim /* && player.lastVisTime > lastVisTimeMap[player.addr]*/) {
         // 玩家在准心范围200像素内的才进行自瞄操作
         if (d < 200) {
-            if (aimAddr == 0 && d < aimDis) {
-                /* 首次自瞄选中 */
-                aimBotX = player.screenPosition.x - screenCenterX;
-                aimBotY = player.screenPosition.y - screenCenterY;
-                aimAddr = player.addr;
-                aimDis = d;
-            } else if (aimAddr == player.addr) {
-                /* 持续自瞄选中 */
+            if (d < aimDis || aimAddr == player.addr) {
+                /* 自瞄选中 */
                 mlong time = getCurrentTime();
                 if ((time - aimTime) > aimRandomRefreshDelay) {
-                    aimRandomY = static_cast<float>(generateRandomNumber(0, player.screenPosition.h));
+                    // Y轴就随机上半身 player.screenPosition.h / 2 就是上半身的范围
+                    aimRandomY = static_cast<float>(generateRandomNumber(0, player.screenPosition.h / 2));
                     aimRandomX =
                     static_cast<float>(generateRandomNumber(0, player.screenPosition.w)) - player.screenPosition.w / 2;
                     aimTime = time;
                     logDebug("randomX:%f randomY: %f\n", aimRandomX, aimRandomY);
                 }
                 aimBotX = player.screenPosition.x - screenCenterX + aimRandomX;
-                aimBotY = player.screenPosition.y - screenCenterY + aimRandomY;
+                aimBotY = player.screenPosition.y - screenCenterY + aimRandomY + (player.screenPosition.h / 10);
+                aimAddr = player.addr;
+                aimDis = d;
             }
         } else if (aimAddr == player.addr) {
-            aimDis = 999999999;
-            aimAddr = 0;
-            aimRandomY = 0;
-            aimRandomX = 0;
+            resetAimBot();
         }
     } else {
-        aimDis = 999999999;
-        aimAddr = 0;
-        aimRandomY = 0;
-        aimRandomX = 0;
+        resetAimBot();
     }
 
     if (aimAddr == player.addr) {
@@ -438,6 +471,7 @@ void surface(Addr baseAddr) {
             logInfo("Failed to initialized KmBox\n");
         } else {
             logInfo("Successfully initialized KmBox\n");
+            kmNet_monitor(true);
             kmBox = true;
         }
     }

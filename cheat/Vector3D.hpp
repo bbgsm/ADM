@@ -41,4 +41,8 @@ struct Vector3D {
     bool isZero() const {
         return x == 0.0f && y == 0.0f && z == 0.0f;
     }
+
+    void print() {
+        logInfo("x: %f, y: %f, z: %f\n", x, y, z);
+    }
 };
