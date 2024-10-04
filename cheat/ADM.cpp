@@ -389,11 +389,13 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     player.screenPosition.x += fx;
     player.screenPosition.y += fy - player.screenPosition.h;
     int d = compute2Distance({player.screenPosition.x, player.screenPosition.y}, {screenCenterX, screenCenterY});
+
     // 如果盒子初始化完成和开镜
     // 通过人物是否可见还判断自瞄还有点bug，先注释
-    if (aimBot && isAim /* && player.lastVisTime > lastVisTimeMap[player.addr]*/) {
-        // 玩家在准心范围200像素内的才进行自瞄操作
-        if (d < 200) {
+    if (isAim) {
+        if (d < 200 &&
+            (player.lastVisTime > lastVisTimeMap[player.addr] /* || (aimAddr == player.addr && lastVisCount < 10)*/)) {
+            // 玩家在准心范围200像素内的才进行自瞄操作
             if (d < aimDis || aimAddr == player.addr) {
                 /* 自瞄选中 */
                 mlong time = getCurrentTime();
@@ -413,17 +415,16 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
         } else if (aimAddr == player.addr) {
             resetAimBot();
         }
-    } else {
+    }else {
         resetAimBot();
     }
-
     if (aimAddr == player.addr) {
         // 辅助瞄准选中颜色
         *color = IM_COL32(0, 255, 0, 255);
     } else if (player.lifeState != 0) {
         // 玩家存活颜色
         *color = IM_COL32(51, 255, 255, 255);
-    } else if (player.lastVisTime > lastVisTimeMap[player.addr]) {
+    } else if (player.lastVisTime >  lastVisTimeMap[player.addr]) {
         // 玩家可见颜色
         *color = IM_COL32(255, 255, 0, 255);
     } else {
@@ -634,6 +635,7 @@ void surface(Addr baseAddr) {
                     ImU32 color = IM_COL32(255, 0, 0, 255);
                     if (readPlayer(cacheObjects[j], localPlayer, baseAddr, &color)) {
                         drawPlayer(color, cacheObjects[j], line);
+                        playerCount++;
                     }
                 } else {
                     if (!worldToScreen(cacheObjects[j].playerPosition, matrix, render.screenWidth, render.screenHeight,
