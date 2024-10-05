@@ -123,7 +123,14 @@ Vector3D lastHeadPosition;
 Vector3D positionPrediction;
 Vector3D headPositionPrediction;
 
-mlong cctime = 0;
+// 最后预测时间
+mlong lastPredictionTime = 0;
+// 自瞄预测间隔时间(ms)
+int predictionIntervalTime = 150;
+// 开启自瞄预测
+bool aimPrediction = true;
+// 增加随机瞄准
+bool aimRandom = true;
 // 辅助瞄准
 bool aimBot = true;
 
@@ -146,7 +153,7 @@ void resetAimBot() {
     aimAddr = 0;
     aimRandomY = 0;
     aimRandomX = 0;
-    cctime = 0;
+    lastPredictionTime = 0;
     lastPosition = {0, 0, 0};
     positionPrediction = {0, 0, 0};
 }
@@ -159,7 +166,7 @@ int generateRandomNumber(int min, int max) {
 }
 
 
-// 获取系统时间
+// 获取系统时间(ms)
 mlong getCurrentTime() {
     timeval tv{};
     gettimeofday(&tv, nullptr);
@@ -354,8 +361,8 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     /**** 自瞄预测 ****/
     // 延迟150ms左右计算两次坐标距离作为预测值并相加到每一帧上
     mlong time = getCurrentTime();
-    if (aimAddr == player.addr) {
-        if (time - cctime > 150 /* 150ms*/) {
+    if (aimPrediction && aimAddr == player.addr) {
+        if (time - lastPredictionTime > predictionIntervalTime /* 150ms*/) {
             if (lastPosition.isZero()) {
                 lastPosition = player.playerPosition;
                 if (!worldToScreen(player.playerPosition, matrix, render.screenWidth, render.screenHeight,
@@ -366,7 +373,7 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
                 positionPrediction = player.playerPosition - lastPosition;
                 lastPosition = player.playerPosition;
             }
-            cctime = time;
+            lastPredictionTime = time;
         }
         if (!worldToScreen(positionPrediction + player.playerPosition, matrix, render.screenWidth, render.screenHeight,
                            player.screenPosition)) {
@@ -399,7 +406,7 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
             if (d < aimDis || aimAddr == player.addr) {
                 /* 自瞄选中 */
                 mlong time = getCurrentTime();
-                if ((time - aimTime) > aimRandomRefreshDelay) {
+                if (aimRandom && (time - aimTime) > aimRandomRefreshDelay) {
                     // Y轴就随机上半身 player.screenPosition.h / 2 就是上半身的范围
                     aimRandomY = static_cast<float>(generateRandomNumber(0, player.screenPosition.h / 2));
                     aimRandomX =
@@ -415,7 +422,7 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
         } else if (aimAddr == player.addr) {
             resetAimBot();
         }
-    }else {
+    } else {
         resetAimBot();
     }
     if (aimAddr == player.addr) {
@@ -424,7 +431,7 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     } else if (player.lifeState != 0) {
         // 玩家存活颜色
         *color = IM_COL32(51, 255, 255, 255);
-    } else if (player.lastVisTime >  lastVisTimeMap[player.addr]) {
+    } else if (player.lastVisTime > lastVisTimeMap[player.addr]) {
         // 玩家可见颜色
         *color = IM_COL32(255, 255, 0, 255);
     } else {
@@ -477,7 +484,6 @@ void surface(Addr baseAddr) {
         }
     }
     /******* kmBox初始化 *******/
-
     while (true) {
         entityMutex.lock();
         memcpy(playerAddrs, entityAddrs, sizeof(EntityAddr) * maxPlayer);
@@ -514,11 +520,17 @@ void surface(Addr baseAddr) {
         ImGui::SliderInt("最大显示物品数", &maxDisplayObjectCount, 0, 1000);
         ImGui::SliderInt("最大读取物品数", &maxObjectCount, 0, 10000);
         ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, maxPlayer, 10000);
-        ImGui::Text("kmBox配置:");
+        ImGui::Text("辅助瞄准配置:");
         ImGui::Checkbox("辅助瞄准", &aimBot);
-
-        ImGui::SliderFloat("瞄准速度", &aimBotSpeed, 1.0f, 20.0f, "%.0f");
-
+        if(aimBot) {
+            ImGui::SliderFloat("瞄准速度", &aimBotSpeed, 1.0f, 20.0f, "%.0f");
+            ImGui::Checkbox("随机瞄准(上半身范围)", &aimRandom);
+            ImGui::Checkbox("开启自瞄预测", &aimPrediction);
+            if(aimPrediction) {
+                ImGui::SliderInt("预测间隔时间(ms)", &predictionIntervalTime, 0, 1000);
+            }
+        }
+        ImGui::Text("kmBox配置:");
         if (ImGui::InputText("IP", kmBoxIP, 16)) {
             ini["kmBox"]["ip"] = kmBoxIP;
             iniFile->write(ini);
