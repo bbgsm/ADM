@@ -712,9 +712,9 @@ public:
             OObject &p = mapObject[i];
             Json objectJson;
             if (p.isPlayer) {
-                objectJson["x"] = p.headPosition.x;
-                objectJson["y"] = p.headPosition.y;
-                objectJson["z"] = p.headPosition.z;
+                objectJson["x"] = p.playerPosition.x;
+                objectJson["y"] = p.playerPosition.y;
+                objectJson["z"] = p.playerPosition.z;
                 objectJson["teamId"] = p.teamId;
                 objectJson["lifeState"] = p.lifeState;
                 objectJson["isPlayer"] = p.isPlayer;
