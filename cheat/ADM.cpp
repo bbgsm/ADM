@@ -405,7 +405,7 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
             // 玩家在准心范围200像素内的才进行自瞄操作
             if (d < aimDis || aimAddr == player.addr) {
                 /* 自瞄选中 */
-                mlong time = getCurrentTime();
+                time = getCurrentTime();
                 if (aimRandom && (time - aimTime) > aimRandomRefreshDelay) {
                     // Y轴就随机上半身 player.screenPosition.h / 2 就是上半身的范围
                     aimRandomY = static_cast<float>(generateRandomNumber(0, player.screenPosition.h / 2));
@@ -777,7 +777,7 @@ void sendWebsocket() {
 }
 
 void websocketServer() {
-    int port = 5123;
+    int port = 6888;
     http.GET("/ping", [](const HttpContextPtr &ctx) { return ctx->send("pong", TEXT_HTML); });
     http.Static("/", "webMap");
     wws.onopen = [](const WebSocketChannelPtr &channel, const HttpRequestPtr &req) {
