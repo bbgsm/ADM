@@ -19,8 +19,9 @@
 #define monitor_begin 1
 #define monitor_ok 2
 #define monitor_exit 0
-int sockClientfd = 0;  // 键鼠网络通信句柄
-int sockMonitorfd = 0; // 监听网络通信句柄
+
+SOCKET sockClientfd = 0;  // 键鼠网络通信句柄
+SOCKET sockMonitorfd = 0; // 监听网络通信句柄
 client_tx tx;             // 发送的内容
 client_tx rx;             // 接收的内容
 sockaddr_in addrSrv;

@@ -3,6 +3,9 @@
 #include <Winsock2.h>
 #include <stdio.h>
 #else // Linux
+#ifndef SOCKET
+#define SOCKET int
+#endif
 #endif
 
 
@@ -27,7 +30,7 @@
 #define cmd_showpic 0x12334883        // 显示图片
 
 
-extern int sockClientfd; // socket通信句柄
+extern SOCKET sockClientfd; // socket通信句柄
 typedef struct {
     unsigned int mac;      // 盒子的mac地址（必须）
     unsigned int rand;     // 随机值
