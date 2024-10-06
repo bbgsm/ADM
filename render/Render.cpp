@@ -289,7 +289,7 @@ void setWindowClickThrough(GLFWwindow* window, bool enable)
     }
     int width, height;
     glfwGetWindowSize(window, &width, &height);
-    printf("Window size: %dx%d\n", width, height);
+    // printf("Window size: %dx%d\n", width, height);
     // 获取原始的 X11 窗口 ID
     Window x11_window = glfwGetX11Window(window);
     XRectangle rect;
@@ -301,12 +301,12 @@ void setWindowClickThrough(GLFWwindow* window, bool enable)
     {
         // 设置窗口为点击穿透
         XShapeCombineRectangles(display, x11_window, ShapeInput, 0, 0, &rect, 1, ShapeSubtract, Unsorted);
-        printf("enable\n");
+        // printf("enable\n");
     }
     else
     {
         XShapeCombineRectangles(display, x11_window, ShapeInput, 0, 0, &rect, 1, ShapeSet, Unsorted);
-        printf("disable\n");
+        // printf("disable\n");
     }
     XSync(display,true);
     XCloseDisplay(display);
