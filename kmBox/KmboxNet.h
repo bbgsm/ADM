@@ -1,6 +1,10 @@
 ﻿#pragma once
+#ifdef _WIN32 // Windows
 #include <Winsock2.h>
 #include <stdio.h>
+#else // Linux
+#endif
+
 
 #pragma warning(disable : 4996)
 // 命令码
@@ -23,7 +27,7 @@
 #define cmd_showpic 0x12334883        // 显示图片
 
 
-extern SOCKET sockClientfd; // socket通信句柄
+extern int sockClientfd; // socket通信句柄
 typedef struct {
     unsigned int mac;      // 盒子的mac地址（必须）
     unsigned int rand;     // 随机值

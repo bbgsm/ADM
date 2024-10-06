@@ -1,17 +1,29 @@
 ﻿#include "KmboxNet.h"
+#ifdef _WIN32 // Windows
+
 #include <WS2tcpip.h>
+#else // Linux
+#endif
+
+#include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <thread>
 #include <time.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
 #include "HidTable.h"
+
 #define monitor_begin 1
 #define monitor_ok 2
 #define monitor_exit 0
-SOCKET sockClientfd = 0;  // 键鼠网络通信句柄
-SOCKET sockMonitorfd = 0; // 监听网络通信句柄
+int sockClientfd = 0;  // 键鼠网络通信句柄
+int sockMonitorfd = 0; // 监听网络通信句柄
 client_tx tx;             // 发送的内容
 client_tx rx;             // 接收的内容
-SOCKADDR_IN addrSrv;
+sockaddr_in addrSrv;
 soft_mouse_t softmouse;                  // 软件鼠标数据
 soft_keyboard_t softkeyboard;            // 软件键盘数据
 static int monitor_run = 0;              // 物理键鼠监控是否运行
@@ -79,9 +91,10 @@ mac : 盒子的mac地址（显示屏幕上有显示，例如：12345）
 返回值:0正常，非零值请看错误代码
 */
 int kmNet_init(const char *ip,const char *port,const char *mac) {
+    int err;
+#ifdef _WIN32 // Windows
     WORD wVersionRequested;
     WSADATA wsaData;
-    int err;
     wVersionRequested = MAKEWORD(1, 1);
     err = WSAStartup(wVersionRequested, &wsaData);
     if (err != 0) return err_creat_socket;
@@ -90,9 +103,15 @@ int kmNet_init(const char *ip,const char *port,const char *mac) {
         sockClientfd = -1;
         return err_net_version;
     }
+#else // Linux
+#endif
     srand((unsigned)time(NULL));
     sockClientfd = socket(AF_INET, SOCK_DGRAM, 0);
+#ifdef _WIN32 // Windows
     addrSrv.sin_addr.S_un.S_addr = inet_addr(ip);
+#else // Linux
+    addrSrv.sin_addr.s_addr = inet_addr(ip);
+#endif
     addrSrv.sin_family = AF_INET;
     addrSrv.sin_port = htons(atoi(port));           // 端口UUID[1]>>16高16位
     tx.head.mac = StrToHex(mac, 4);                 // 盒子的mac 固定 UUID[1]
@@ -102,8 +121,10 @@ int kmNet_init(const char *ip,const char *port,const char *mac) {
     memset(&softmouse, 0, sizeof(softmouse));       // 软件鼠标数据清零
     memset(&softkeyboard, 0, sizeof(softkeyboard)); // 软件鼠标数据清零
     err = sendto(sockClientfd, (const char *)&tx, sizeof(cmd_head_t), 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    Sleep(20); // 第一次连接可能时间比较久
-    int clen = sizeof(addrSrv);
+    // 第一次连接可能时间比较久
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    socklen_t clen = sizeof(addrSrv);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&addrSrv, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -127,8 +148,8 @@ int kmNet_mouse_move(short x, short y) {
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
     softmouse.x = 0;
     softmouse.y = 0;
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -150,8 +171,8 @@ int kmNet_mouse_left(int isdown) {
     memcpy(&tx.cmd_mouse, &softmouse, sizeof(soft_mouse_t));
     int length = sizeof(cmd_head_t) + sizeof(soft_mouse_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -172,8 +193,8 @@ int kmNet_mouse_middle(int isdown) {
     memcpy(&tx.cmd_mouse, &softmouse, sizeof(soft_mouse_t));
     int length = sizeof(cmd_head_t) + sizeof(soft_mouse_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -194,8 +215,8 @@ int kmNet_mouse_right(int isdown) {
     memcpy(&tx.cmd_mouse, &softmouse, sizeof(soft_mouse_t));
     int length = sizeof(cmd_head_t) + sizeof(soft_mouse_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -213,8 +234,8 @@ int kmNet_mouse_wheel(int wheel) {
     int length = sizeof(cmd_head_t) + sizeof(soft_mouse_t);
     softmouse.wheel = 0;
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -240,8 +261,8 @@ int kmNet_mouse_all(int button, int x, int y, int wheel) {
     softmouse.y = 0;
     softmouse.wheel = 0;
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -267,8 +288,8 @@ int kmNet_mouse_move_auto(int x, int y, int ms) {
     softmouse.x = 0; // 清零
     softmouse.y = 0; // 清零
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -299,8 +320,8 @@ int kmNet_mouse_move_beizer(int x, int y, int ms, int x1, int y1, int x2, int y2
     softmouse.x = 0;
     softmouse.y = 0;
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -347,8 +368,8 @@ KM_down_send:
     memcpy(&tx.cmd_keyboard, &softkeyboard, sizeof(soft_keyboard_t));
     int length = sizeof(cmd_head_t) + sizeof(soft_keyboard_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -389,8 +410,8 @@ KM_up_send:
     memcpy(&tx.cmd_keyboard, &softkeyboard, sizeof(soft_keyboard_t));
     int length = sizeof(cmd_head_t) + sizeof(soft_keyboard_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -406,10 +427,13 @@ int kmNet_reboot(void) {
     tx.head.rand = rand();    // 随机混淆值
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
+#ifdef _WIN32 // Windows
     WSACleanup();
+#else // Linux
+#endif
     sockClientfd = -1;
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -417,19 +441,22 @@ int kmNet_reboot(void) {
 
 
 // 监听物理键鼠
-static HANDLE handle_listen = NULL;
-DWORD WINAPI ThreadListenProcess(LPVOID lpParameter) {
+static std::thread handle_listen;
+int  ThreadListenProcess() {
+#ifdef _WIN32 // Windows
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);         // 创建套接字，SOCK_DGRAM指明使用 UDP 协议
-    SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0); // 绑定套接字
+#else // Linux
+#endif
+    int sock = socket(AF_INET, SOCK_DGRAM, 0); // 绑定套接字
     sockaddr_in servAddr;
     memset(&servAddr, 0, sizeof(servAddr));          // 每个字节都用0填充
     servAddr.sin_family = PF_INET;                   // 使用IPv4地址
     servAddr.sin_addr.s_addr = htonl(INADDR_ANY);    // 自动获取IP地址
     servAddr.sin_port = htons(addrSrv.sin_port + 1); // 端口
-    bind(sock, (SOCKADDR *)&servAddr, sizeof(SOCKADDR));
-    SOCKADDR cliAddr; // 客户端地址信息
-    int nSize = sizeof(SOCKADDR);
+    bind(sock, (sockaddr *)&servAddr, sizeof(sockaddr));
+    sockaddr cliAddr; // 客户端地址信息
+    socklen_t nSize = sizeof(sockaddr);
     char buff[1024]; // 缓冲区
     monitor_run = monitor_ok;
     while (monitor_run) {
@@ -437,7 +464,11 @@ DWORD WINAPI ThreadListenProcess(LPVOID lpParameter) {
         memcpy(&hw_mouse, buff, sizeof(hw_mouse));                          // 物理鼠标状态
         memcpy(&hw_keyboard, &buff[sizeof(hw_mouse)], sizeof(hw_keyboard)); // 物理键盘状态
     }
+#ifdef _WIN32 // Windows
     closesocket(sock);
+#else // Linux
+    close(sock);
+#endif
     return 0;
 }
 
@@ -453,21 +484,21 @@ int kmNet_monitor(int enable) {
         tx.head.rand = 0; // 随机混淆值
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (enable) // 打开监听功能
     {
         do {
-            if (handle_listen == NULL) {
-                DWORD lpThreadID;
+            if (handle_listen.joinable()) {
                 monitor_run = monitor_begin;
-                handle_listen = CreateThread(NULL, 0, ThreadListenProcess, NULL, 0, &lpThreadID);
+                handle_listen = std::thread(ThreadListenProcess);
+                handle_listen.detach();
             }
-            Sleep(10);
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         } while (monitor_run != monitor_ok); // 等待监听线程启动
     } else {
-        handle_listen == NULL;
+        handle_listen = std::thread();
         monitor_run = monitor_exit;
     }
     if (err < 0) return err_net_rx_timeout;
@@ -571,8 +602,8 @@ int kmNet_debug(short port, char enable) {
     tx.head.rand = port | enable << 16; // 随机混淆值
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -587,8 +618,8 @@ int kmNet_mask_mouse_left(int enable) {
     tx.head.rand = enable ? (mask_keyboard_mouse_flag |= BIT0) : (mask_keyboard_mouse_flag &= ~BIT0); // 屏蔽鼠标左键
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -603,8 +634,8 @@ int kmNet_mask_mouse_right(int enable) {
     tx.head.rand = enable ? (mask_keyboard_mouse_flag |= BIT1) : (mask_keyboard_mouse_flag &= ~BIT1); // 屏蔽鼠标左键
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -620,8 +651,8 @@ int kmNet_mask_mouse_middle(int enable) {
     tx.head.rand = enable ? (mask_keyboard_mouse_flag |= BIT2) : (mask_keyboard_mouse_flag &= ~BIT2); // 屏蔽鼠标左键
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -637,8 +668,8 @@ int kmNet_mask_mouse_side1(int enable) {
     tx.head.rand = enable ? (mask_keyboard_mouse_flag |= BIT3) : (mask_keyboard_mouse_flag &= ~BIT3); // 屏蔽鼠标左键
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -654,8 +685,8 @@ int kmNet_mask_mouse_side2(int enable) {
     tx.head.rand = enable ? (mask_keyboard_mouse_flag |= BIT4) : (mask_keyboard_mouse_flag &= ~BIT4); // 屏蔽鼠标左键
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -671,8 +702,8 @@ int kmNet_mask_mouse_x(int enable) {
     tx.head.rand = enable ? (mask_keyboard_mouse_flag |= BIT5) : (mask_keyboard_mouse_flag &= ~BIT5); // 屏蔽鼠标左键
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -688,8 +719,8 @@ int kmNet_mask_mouse_y(int enable) {
     tx.head.rand = enable ? (mask_keyboard_mouse_flag |= BIT6) : (mask_keyboard_mouse_flag &= ~BIT6); // 屏蔽鼠标左键
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -704,8 +735,8 @@ int kmNet_mask_mouse_wheel(int enable) {
     tx.head.rand = enable ? (mask_keyboard_mouse_flag |= BIT7) : (mask_keyboard_mouse_flag &= ~BIT7); // 屏蔽鼠标左键
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -715,15 +746,15 @@ int kmNet_mask_mouse_wheel(int enable) {
 // 屏蔽键盘指定按键
 int kmNet_mask_keyboard(short vkey) {
     int err;
-    BYTE v_key = vkey & 0xff;
+    signed char v_key = vkey & 0xff;
     if (sockClientfd <= 0) return err_creat_socket;
     tx.head.indexpts++;                                              // 指令统计值
     tx.head.cmd = cmd_mask_mouse;                                    // 指令
     tx.head.rand = (mask_keyboard_mouse_flag & 0xff) | (v_key << 8); // 屏蔽键盘vkey
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -733,15 +764,15 @@ int kmNet_mask_keyboard(short vkey) {
 // 解除屏蔽键盘指定按键
 int kmNet_unmask_keyboard(short vkey) {
     int err;
-    BYTE v_key = vkey & 0xff;
+    signed char v_key = vkey & 0xff;
     if (sockClientfd <= 0) return err_creat_socket;
     tx.head.indexpts++;                                              // 指令统计值
     tx.head.cmd = cmd_unmask_all;                                    // 指令
     tx.head.rand = (mask_keyboard_mouse_flag & 0xff) | (v_key << 8); // 屏蔽键盘vkey
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -758,8 +789,8 @@ int kmNet_unmask_all() {
     tx.head.rand = mask_keyboard_mouse_flag;
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -778,8 +809,8 @@ int kmNet_setconfig(char *ip, unsigned short port) {
     tx.u8buff.buff[1] = port >> 0;
     int length = sizeof(cmd_head_t) + 2;
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -794,8 +825,8 @@ int kmNet_setvidpid(unsigned short vid, unsigned short pid) {
     tx.head.rand = vid | pid << 16;
     int length = sizeof(cmd_head_t);
     sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-    SOCKADDR_IN sclient;
-    int clen = sizeof(sclient);
+    sockaddr_in sclient;
+    socklen_t clen = sizeof(sclient);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&sclient, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
@@ -813,8 +844,8 @@ int kmNet_lcd_color(unsigned short rgb565) {
         for (int c = 0; c < 512; c++) tx.u16buff.buff[c] = rgb565;
         int length = sizeof(cmd_head_t) + 1024;
         sendto(sockClientfd, (const char *)&tx, length, 0, (struct sockaddr *)&addrSrv, sizeof(addrSrv));
-        SOCKADDR_IN sclient;
-        int clen = sizeof(sclient);
+        sockaddr_in sclient;
+        socklen_t clen = sizeof(sclient);
         err = recvfrom(sockClientfd, (char *)&rx, length, 0, (struct sockaddr *)&sclient, &clen);
 		if (err < 0)
 			return err_net_rx_timeout;
@@ -836,8 +867,8 @@ int kmNet_lcd_picture_bottom(unsigned char* buff_128_80)
 		memcpy(tx.u8buff.buff, &buff_128_80[y * 1024], 1024);
 		int length = sizeof(cmd_head_t) + 1024;
 		sendto(sockClientfd, (const char*)&tx, length, 0, (struct sockaddr*)&addrSrv, sizeof(addrSrv));
-		SOCKADDR_IN sclient;
-		int clen = sizeof(sclient);
+		sockaddr_in sclient;
+		socklen_t clen = sizeof(sclient);
 		err = recvfrom(sockClientfd, (char*)&rx, length, 0, (struct sockaddr*)&sclient, &clen);
 		if (err < 0)
 			return err_net_rx_timeout;
@@ -858,8 +889,8 @@ int kmNet_lcd_picture(unsigned char* buff_128_160)
 		memcpy(tx.u8buff.buff, &buff_128_160[y * 1024], 1024);
 		int length = sizeof(cmd_head_t) + 1024;
 		sendto(sockClientfd, (const char*)&tx, length, 0, (struct sockaddr*)&addrSrv, sizeof(addrSrv));
-		SOCKADDR_IN sclient;
-		int clen = sizeof(sclient);
+		sockaddr_in sclient;
+		socklen_t clen = sizeof(sclient);
 		err = recvfrom(sockClientfd, (char*)&rx, length, 0, (struct sockaddr*)&sclient, &clen);
 		if (err < 0)
 			return err_net_rx_timeout;
