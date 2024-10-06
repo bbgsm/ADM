@@ -45,6 +45,11 @@
         .clearCache, #scale, #range, #nameInput, #displayTeamCheckBox, #displayObjectCheckBox {
             margin-top: 10px;
         }
+
+        .radio-inline {
+            display: inline-block;
+            margin-left: 30px; /* 调整每个选项之间的间距 */
+        }
     </style>
 </head>
 <body>
@@ -58,6 +63,12 @@
 <div>
     <label for="nameInput">名称</label>
     <input type="text" id="nameInput" value=""/>
+</div>
+
+<div style="margin-top: 30px;margin-bottom: 30px" id="selectTeamPlayerCheckBox">
+    <span>选择队友</span>
+    <span id="teamPlayerRadioContainer">
+    </span>
 </div>
 
 <div>
@@ -116,6 +127,7 @@
         "#FFA500", // 橙色
         "#FFC0CB", // 粉色
     ];
+    let teamList = [];
 
     document.getElementById('displayTeamCheckBox').onchange = function () {
         localStorage.setItem('displayTeam', this.checked);
@@ -176,6 +188,46 @@
         }
 
     };
+
+    // display Team Player
+    function setTeamOption(players) {
+        clearOption();
+        players.forEach((player,index)=>{
+            const div = document.createElement('div');
+            div.classList.add('radio-inline');
+
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.id = `option${index}`;
+            radio.name = 'dynamicOptions';
+            radio.value = `option${index}`;
+
+            if(index === 0){
+                radio.checked = true;
+            }
+
+            const label = document.createElement('label');
+            label.htmlFor = `option${index}`;
+            label.textContent = player.name;
+
+            label.addEventListener('click', function() {
+                nameValue = label.textContent
+                console.log(nameValue);
+            });
+
+            div.appendChild(radio);
+            div.appendChild(label);
+
+            const radioContainer = document.getElementById('teamPlayerRadioContainer');
+            radioContainer.appendChild(div);
+        })
+
+    }
+
+    function clearOption(){
+        const radioContainer = document.getElementById('teamPlayerRadioContainer');
+        radioContainer.innerHTML = '';
+    }
 
     function distance(a, b) {
         return Math.floor(Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2) + Math.pow(b.z - a.z, 2)) * 0.025);
@@ -257,6 +309,7 @@
     }
 
     function drawPlayers(players) {
+
         ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
 
         const centerX = canvas.width / 2;
@@ -265,13 +318,19 @@
         let localPlayer = players.find(player => player.isPlayer && player.name === nameValue);
         if (!localPlayer) return;
 
+        let newTeamList = [];
+        newTeamList.push(localPlayer);
         players.forEach(player => {
             if (player === localPlayer) {
                 return;
             }
-            if (!displayTeam && localPlayer.teamId === player.teamId) {
-                return;
+            if (localPlayer.teamId === player.teamId) {
+                newTeamList.push(player);
+                if (!displayTeam) {
+                    return;
+                }
             }
+
             if (!displayObject && !player.isPlayer) {
                 return;
             }
@@ -321,6 +380,20 @@
                 drawTextWithBackground(x, y, color, playerName);
             }
         });
+        for (let i = 0; i < newTeamList.length; i++) {
+            let find = false;
+            for (let j = 0; j < teamList.length; j++) {
+                if (newTeamList[i].name === teamList[j].name) {
+                    find = true;
+                    break;
+                }
+            }
+            if(!find){
+                teamList = newTeamList;
+                setTeamOption(teamList);
+                break;
+            }
+        }
     }
 
     const ws = new WebSocket('ws://' + window.location.host);
