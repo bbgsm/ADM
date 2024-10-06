@@ -353,7 +353,7 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
     player.distance = dis;
     // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
-    // player.health = ((health + shieldHealth) / (maxShieldHealth + maxHealth)) / 100
+    // player.health = ((health + shieldHealth) / (maxShieldHealth + maxHealth)) * 100
     player.health = static_cast<int>(
     (static_cast<float>(player.health + player.shieldHealth[0]) / (/* max health */ 100.0F + player.shieldHealth[1])) *
     100.0F);
@@ -398,10 +398,8 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     int d = compute2Distance({player.screenPosition.x, player.screenPosition.y}, {screenCenterX, screenCenterY});
 
     // 如果盒子初始化完成和开镜
-    // 通过人物是否可见还判断自瞄还有点bug，先注释
     if (isAim) {
-        if (d < 200 &&
-            (player.lastVisTime > lastVisTimeMap[player.addr] /* || (aimAddr == player.addr && lastVisCount < 10)*/)) {
+        if (d < 200 && (player.lastVisTime > lastVisTimeMap[player.addr])) {
             // 玩家在准心范围200像素内的才进行自瞄操作
             if (d < aimDis || aimAddr == player.addr) {
                 /* 自瞄选中 */
