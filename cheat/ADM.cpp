@@ -144,7 +144,7 @@ std::map<int, std::string> mapNames = {
 {236, "3倍镜"},  {201, "紫头"},   {202, "金头"},   {195, "医疗箱"},   {280, "涡轮"},         {240, "10倍镜"},
 {194, "凤凰"},   {197, "大电"},   {224, "蓝包"},   {225, "紫包"},     {226, "金包"},         {229, "手雷"},
 {228, "铝热剂"}, {230, "电弧星"}, {329, "升级包"}, {270, "枪托(紫)"}, {258, "能量弹夹(紫)"}, {259, "能量弹夹(金)"},
-{49, "R99"},     {19, "专注"},    {132, "波赛克"}, {1, "克雷贝尔"},   {227, "手刀"}, /*{1564672840, "机器人"},*/
+{49, "R99"},     {19, "专注"},    {132, "波赛克"}, {1, "克雷贝尔"},   {227, "手刀"},
 };
 
 // 重置自瞄参数
@@ -443,7 +443,7 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     return true;
 }
 void surface(Addr baseAddr) {
-    logInfo("screen width:%d height %d\n", render.screenWidth, render.screenHeight);
+    logInfo("Screen width: %d height %d\n", render.screenWidth, render.screenHeight);
     screenCenterX = render.screenWidth / 2;
     screenCenterY = render.screenHeight / 2;
 
@@ -803,7 +803,7 @@ void websocketServer() {
     server.registerHttpService(&http);
     server.registerWebSocketService(&wws);
     server.start();
-    logInfo("---- WebSocket Server initialized ----\n");
+    logInfo("WebSocket Server initialized\n");
     std::thread sendWebsocketTh(sendWebsocket);
     sendWebsocketTh.detach();
 }
@@ -846,7 +846,6 @@ void plugin() {
     const Addr baseAddr = mem->getBaseAddr();
     logInfo("Pid: %d\n", mem->getProcessPid());
     logInfo("BaseAddr: %llX\n", baseAddr);
-    logInfo("---- END ----\n");
     websocketServer();
     // 物品读取线程
     std::thread th(objTest);
