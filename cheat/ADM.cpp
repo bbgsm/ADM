@@ -570,7 +570,7 @@ void surface(Addr baseAddr) {
             mem->addScatterReadV(handle, &localPlayer.itemId, sizeof(int), localPlayerAddr, OFF_ITEM_ID);
             mem->addScatterReadV(handle, &localPlayer.viewAngles, sizeof(Vector2D), localPlayerAddr, OFF_VIEW_ANGLES5);
             mem->addScatterReadV(handle, &isAim, sizeof(bool), localPlayerAddr, OFF_AIM);
-
+            isAim = isAim && kmBox;
             mem->executeReadScatter(handle);
             mem->closeScatterHandle(handle);
             handle = mem->createScatter();
