@@ -3,6 +3,9 @@
 
 #include <WS2tcpip.h>
 #else // Linux
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #endif
 
 #include <cstring>
@@ -10,9 +13,7 @@
 #include <iostream>
 #include <thread>
 #include <time.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
+
 
 #include "HidTable.h"
 
@@ -108,11 +109,7 @@ int kmNet_init(const char *ip,const char *port,const char *mac) {
 #endif
     srand((unsigned)time(NULL));
     sockClientfd = socket(AF_INET, SOCK_DGRAM, 0);
-#ifdef _WIN32 // Windows
-    addrSrv.sin_addr.S_un.S_addr = inet_addr(ip);
-#else // Linux
     addrSrv.sin_addr.s_addr = inet_addr(ip);
-#endif
     addrSrv.sin_family = AF_INET;
     addrSrv.sin_port = htons(atoi(port));           // 端口UUID[1]>>16高16位
     tx.head.mac = StrToHex(mac, 4);                 // 盒子的mac 固定 UUID[1]
