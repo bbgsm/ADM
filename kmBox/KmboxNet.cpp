@@ -92,7 +92,7 @@ port: 通信端口号   （显示屏上会有显示，例如：6234）
 mac : 盒子的mac地址（显示屏幕上有显示，例如：12345）
 返回值:0正常，非零值请看错误代码
 */
-int kmNet_init(const char *ip,const char *port,const char *mac) {
+int kmNet_init(const char *ip, const char *port, const char *mac) {
     int err;
 #ifdef _WIN32 // Windows
     WORD wVersionRequested;
@@ -126,6 +126,17 @@ int kmNet_init(const char *ip,const char *port,const char *mac) {
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&addrSrv, &clen);
     if (err < 0) return err_net_rx_timeout;
     return NetRxReturnHandle(&rx, &tx);
+}
+
+void kmNet_close() {
+    if (monitor_run) {
+        kmNet_monitor(false);
+    }
+#ifdef _WIN32 // Windows
+    closesocket(sockClientfd);
+#else // Linux
+    close(sockClientfd);
+#endif
 }
 
 /*
@@ -440,11 +451,11 @@ int kmNet_reboot(void) {
 
 // 监听物理键鼠
 static std::thread handle_listen;
-int  ThreadListenProcess() {
+int ThreadListenProcess() {
 #ifdef _WIN32 // Windows
     WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);         // 创建套接字，SOCK_DGRAM指明使用 UDP 协议
-#else // Linux
+    WSAStartup(MAKEWORD(2, 2), &wsaData); // 创建套接字，SOCK_DGRAM指明使用 UDP 协议
+#else                                     // Linux
 #endif
     int sock = socket(AF_INET, SOCK_DGRAM, 0); // 绑定套接字
     sockaddr_in servAddr;
@@ -488,7 +499,7 @@ int kmNet_monitor(int enable) {
     if (enable) // 打开监听功能
     {
         do {
-            if (handle_listen.joinable()) {
+            if (!handle_listen.joinable()) {
                 monitor_run = monitor_begin;
                 handle_listen = std::thread(ThreadListenProcess);
                 handle_listen.detach();
@@ -845,7 +856,7 @@ int kmNet_lcd_color(unsigned short rgb565) {
         sockaddr_in sclient;
         socklen_t clen = sizeof(sclient);
         err = recvfrom(sockClientfd, (char *)&rx, length, 0, (struct sockaddr *)&sclient, &clen);
-		if (err < 0)
+        if (err < 0)
 			return err_net_rx_timeout;
 	}
 	return NetRxReturnHandle(&rx, &tx);

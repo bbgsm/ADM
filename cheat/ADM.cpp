@@ -520,11 +520,11 @@ void surface(Addr baseAddr) {
         ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, maxPlayer, 10000);
         ImGui::Text("辅助瞄准配置:");
         ImGui::Checkbox("辅助瞄准", &aimBot);
-        if(aimBot) {
+        if (aimBot) {
             ImGui::SliderFloat("瞄准速度", &aimBotSpeed, 1.0f, 20.0f, "%.0f");
             ImGui::Checkbox("随机瞄准(上半身范围)", &aimRandom);
             ImGui::Checkbox("开启自瞄预测", &aimPrediction);
-            if(aimPrediction) {
+            if (aimPrediction) {
                 ImGui::SliderInt("预测间隔时间(ms)", &predictionIntervalTime, 0, 1000);
             }
         }
@@ -885,6 +885,9 @@ int main() {
     //     logInfo("Dump initialized\n");
     // }
     plugin();
+    if(kmBox) {
+        kmNet_close();
+    }
     delete iniFile;
     delete mem;
     delete[] entityAddrs;

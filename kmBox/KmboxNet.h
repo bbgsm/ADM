@@ -92,6 +92,7 @@ mac : 盒子的mac地址（显示屏幕上有显示）
 返回值：连接成功返回0 ，其他值参见错误代码
 */
 int kmNet_init(const char *ip,const char *port,const char *mac);                                   // ok
+void kmNet_close();
 int kmNet_mouse_move(short x, short y);                                            // ok
 int kmNet_mouse_left(int isdown);                                                  // ok
 int kmNet_mouse_right(int isdown);                                                 // ok
