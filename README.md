@@ -1,8 +1,10 @@
 # ADM
 Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运行
-# 图片
+
 # 注意
 - 辅助瞄准顾名思义就是用来辅助的，如果想完全当自瞄用，就把瞄准速度拉满，拉满不出一天号就没了
+
+# 图片
 * 方框
 <br> <img src="img/player.jpg" width="800">
 * 物品
@@ -27,9 +29,11 @@ Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运
 
 # 测试环境
 #### Windows
-- Windows 11 + vs2022
+- 主机: Windows 11 + CaptainDMA 75T
+- 副机: Windows 11 
 #### Linux
-- Linux arm64 香橙派5 + Ubuntu 20.04
+- 主机: Windows 11 + CaptainDMA 75T
+- 副机: Ubuntu arm64 香橙派5 
 - Linux X64 待开发....
 
 
