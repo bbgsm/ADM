@@ -146,7 +146,7 @@ mINI::INIFile *iniFile;
 
 std::map<int, std::string> mapNames = {
 {236, "3倍镜"},    {201, "紫头"},         {202, "金头"},         {195, "医疗箱"},
-{280, "涡轮"},     {240, "10倍镜"},       {194, "凤凰"},         {197, "大电"},
+/*{280, "装填器"}, */    {240, "10倍镜"},       {194, "凤凰"},         {197, "大电"},
 {224, "蓝包"},     {225, "紫包"},         {226, "金包"},         /*       {229, "手雷"},
 {228, "铝热剂"}, {230, "电弧星"},*/ {329, "升级包"},
 {270, "枪托(紫)"}, {258, "能量弹夹(紫)"}, {259, "能量弹夹(金)"}, {49, "R99"},
@@ -673,25 +673,24 @@ void surface(Addr baseAddr) {
     delete[] playerAddrs;
     delete[] cacheObjects;
 }
-
+/*** http 服务 ***/
 using namespace hv;
 WebSocketServer server;
 WebSocketService wws;
 HttpService http;
 std::map<WebSocketChannel *, WebSocketChannel *> channels;
+/*** http 服务 ***/
 
 /**
  * 网页地图分享功能
  */
-class MyContext {
+class WebMapContext {
 public:
-    MyContext() {
-        logDebug("MyContext::MyContext()\n");
+    WebMapContext() {
         timerID = INVALID_TIMER_ID;
     }
 
-    ~MyContext() {
-        logDebug("MyContext::~MyContext()\n");
+    ~WebMapContext() {
     }
 
     static int handleMessage(const std::string &msg, enum ws_opcode opcode) {
@@ -762,7 +761,7 @@ void sendWebsocket() {
         mapObjectCount = mapObjectCacheCount;
         for (auto &channel : channels) {
             if (channel.second->isConnected() && channel.second->isWriteComplete()) {
-                MyContext::run(channel.second, mapObject, mapObjectCount);
+                WebMapContext::run(channel.second, mapObject, mapObjectCount);
             }
         }
         sleep_ms(100);
@@ -776,20 +775,20 @@ void websocketServer() {
     http.Static("/", "webMap");
 
     wws.onopen = [](const WebSocketChannelPtr &channel, const HttpRequestPtr &req) {
-        logInfo("onopen: GET %s\n", req->Path().c_str());
-        auto ctx = channel->newContextPtr<MyContext>();
+        logInfo("onopen, client ip: %s\n", req->client_addr.ip.c_str());
+        auto ctx = channel->newContextPtr<WebMapContext>();
         channels[channel.get()] = (channel.get());
     };
 
     wws.onmessage = [](const WebSocketChannelPtr &channel, const std::string &msg) {
-        auto ctx = channel->getContextPtr<MyContext>();
+        auto ctx = channel->getContextPtr<WebMapContext>();
         ctx->handleMessage(msg, channel->opcode);
     };
 
     wws.onclose = [](const WebSocketChannelPtr &channel) {
         channels.erase(channel.get());
         logInfo("onclose\n");
-        auto ctx = channel->getContextPtr<MyContext>();
+        auto ctx = channel->getContextPtr<WebMapContext>();
         if (ctx->timerID != INVALID_TIMER_ID) {
             killTimer(ctx->timerID);
             ctx->timerID = INVALID_TIMER_ID;

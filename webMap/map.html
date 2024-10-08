@@ -127,7 +127,29 @@
         "#FFA500", // 橙色
         "#FFC0CB", // 粉色
     ];
+
     let teamList = [];
+    let itemColor = new Map([
+        [236, 'rgba(138, 43, 226, 1)'], // 3倍镜
+        [201, 'rgba(138, 43, 226, 1)'], // 紫头
+        [202, 'rgba(255, 215, 0, 1)'], // 金头
+        [195, 'rgba(0, 0, 0, 1)'], // 医疗箱
+        [280, 'rgba(255, 215, 0, 1)'], // 装填器
+        [240, 'rgba(255, 215, 0, 1)'], // 10倍镜
+        [194, 'rgba(0, 0, 0, 1)'], // 凤凰
+        [197, 'rgba(0, 0, 0, 1)'], // 大电
+        [224, 'rgba(0, 0, 0, 1)'], // 蓝包
+        [225, 'rgba(138, 43, 226, 1)'], // 紫包
+        [226, 'rgba(255, 215, 0, 1)'], // 金包
+        [270, 'rgba(138, 43, 226, 1)'], // 枪托(紫)
+        [258, 'rgba(138, 43, 226, 1)'], // 能量弹夹(紫)
+        [259, 'rgba(255, 215, 0, 1)'], // 能量弹夹(金)
+        [49, 'rgba(255, 0, 0, 1)'], // R99
+        [19, 'rgba(255, 0, 0, 1)'], // 专注
+        [132, 'rgba(255, 0, 0, 1)'], // 波赛克
+        [1, 'rgba(255, 0, 0, 1)'], // 克雷贝尔
+        [227, 'rgba(255, 0, 0, 1)'], // 手刀
+    ]);
 
     document.getElementById('displayTeamCheckBox').onchange = function () {
         localStorage.setItem('displayTeam', this.checked);
@@ -192,7 +214,7 @@
     // display Team Player
     function setTeamOption(players) {
         clearOption();
-        players.forEach((player,index)=>{
+        players.forEach((player, index) => {
             const div = document.createElement('div');
             div.classList.add('radio-inline');
 
@@ -202,7 +224,7 @@
             radio.name = 'dynamicOptions';
             radio.value = `option${index}`;
 
-            if(index === 0){
+            if (index === 0) {
                 radio.checked = true;
             }
 
@@ -210,7 +232,7 @@
             label.htmlFor = `option${index}`;
             label.textContent = player.name;
 
-            label.addEventListener('click', function() {
+            label.addEventListener('click', function () {
                 nameValue = label.textContent
                 console.log(nameValue);
             });
@@ -224,7 +246,7 @@
 
     }
 
-    function clearOption(){
+    function clearOption() {
         const radioContainer = document.getElementById('teamPlayerRadioContainer');
         radioContainer.innerHTML = '';
     }
@@ -267,14 +289,14 @@
         ctx.restore();
     }
 
-    function drawTextWithBackground(x, y, color, text) {
+    function drawTextWithBackground(x, y, backgroundColor, textColor, text) {
         const textWidth = ctx.measureText(text).width;
         const textHeight = 14;
         // ctx.globalAlpha = 0.8;
 
-        ctx.fillStyle = color;
-        ctx.fillRect(x - textWidth / 2 - 2, y + 15, textWidth + 4, textHeight + 4);
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = backgroundColor;
+        ctx.fillRect(x - textWidth / 2, y + 15, textWidth , textHeight);
+        ctx.fillStyle = textColor;
         ctx.font = '14px Arial';
         ctx.fillText(text, x - textWidth / 2, y + 15 + textHeight);
         ctx.restore();
@@ -368,16 +390,20 @@
                 }
                 const text = " (高度:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
                 drawTriangle(x, y, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
-                drawTextWithBackground(x, y, textBackgroundColor, text);
+                drawTextWithBackground(x, y, textBackgroundColor, 'white', text);
             } else {
                 const playerName = player.name + " (" + dis + "M)";
-                let color;
                 if (isPointingTo(localPlayer, player)) {
-                    color = selectObjectBackgroundColor;
+                    drawTextWithBackground(x, y, selectObjectBackgroundColor, 'white', playerName);
                 } else {
-                    color = textBackgroundColor;
+                    if (itemColor.has(player.itemId)) {
+                        let textColor = itemColor.get(player.itemId);
+                        drawTextWithBackground(x, y, textBackgroundColor, textColor, playerName);
+                    } else {
+                        drawTextWithBackground(x, y, textBackgroundColor, 'white', playerName);
+                    }
+
                 }
-                drawTextWithBackground(x, y, color, playerName);
             }
         });
         for (let i = 0; i < newTeamList.length; i++) {
@@ -388,7 +414,7 @@
                     break;
                 }
             }
-            if(!find){
+            if (!find) {
                 teamList = newTeamList;
                 setTeamOption(teamList);
                 break;
