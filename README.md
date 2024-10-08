@@ -1,6 +1,9 @@
 # ADM
 Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运行
 
+# Telegram
+* [✈️飞机群](https://t.me/+R3hf2s4ZVF81YmZl)
+
 # 注意
 - 辅助瞄准顾名思义就是用来辅助的，如果想完全当自瞄用，就把瞄准速度拉满，拉满不出一天号就没了
 
