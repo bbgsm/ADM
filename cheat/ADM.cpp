@@ -608,8 +608,7 @@ void surface(Addr baseAddr) {
                                      OFF_INDEX_IN_NAMELIST);
                 mem->addScatterReadV(handle, &players[playerIndex].health, sizeof(int), player, OFF_HEALTH);
                 mem->addScatterReadV(handle, &players[playerIndex].maxHealth, sizeof(int), player, OFF_MAX_HEALTH);
-                mem->addScatterReadV(handle, players[playerIndex].shieldHealth,
-                                     sizeof(int) * 2, player, OFF_SHIELD);
+                mem->addScatterReadV(handle, players[playerIndex].shieldHealth, sizeof(int) * 2, player, OFF_SHIELD);
                 players[playerIndex].isPlayer = true;
                 players[playerIndex].addr = player;
                 playerIndex++;
@@ -625,8 +624,6 @@ void surface(Addr baseAddr) {
             }
             // 读取矩阵
             mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
-            handle = mem->createScatter();
-            mem->execAndCloseScatterHandle(handle);
             for (int j = 0; j < cacheObjectCount; j++) {
                 OObject &cacheObject = cacheObjects[j];
                 if (cacheObject.isPlayer) {
@@ -639,8 +636,7 @@ void surface(Addr baseAddr) {
                     mem->readV(&cacheObject.nameIndex, sizeof(int), cacheObject.addr, OFF_INDEX_IN_NAMELIST);
                     mem->readV(&cacheObject.health, sizeof(int), cacheObject.addr, OFF_HEALTH);
                     mem->readV(&cacheObject.maxHealth, sizeof(int), cacheObject.addr, OFF_MAX_HEALTH);
-                    mem->readV(cacheObject.shieldHealth, sizeof(int) * 2, cacheObject.addr,
-                               OFF_SHIELD);
+                    mem->readV(cacheObject.shieldHealth, sizeof(int) * 2, cacheObject.addr, OFF_SHIELD);
                     /* 机器人、无人机、马文、载具 */
                     ImU32 color = IM_COL32(255, 0, 0, 255);
                     if (handlePlayer(cacheObject, localPlayer, baseAddr, &color)) {
@@ -876,18 +872,18 @@ int main() {
     // mem = new DirectMemoryTools();
     // Dma读取内存
     // mem = new DmaMemoryTools();
-    // if (!mem->init("r5apex.exe")) {
-    //     logInfo("Failed to initialized DMA\n");
-    // } else {
-    //     logInfo("Successfully initialized DMA\n");
-    // }
-    // 读取Dump的内存
-    mem = new DumpMemoryTools();
-    if (!mem->init("C:\\dumpMem\\apex11\\dict.txt")) {
-        logInfo("Failed to initialized Dump\n");
+    if (!mem->init("r5apex.exe")) {
+        logInfo("Failed to initialized DMA\n");
     } else {
-        logInfo("Dump initialized\n");
+        logInfo("Successfully initialized DMA\n");
     }
+    // 读取Dump的内存
+    // mem = new DumpMemoryTools();
+    // if (!mem->init("C:\\dumpMem\\apex11\\dict.txt")) {
+    //     logInfo("Failed to initialized Dump\n");
+    // } else {
+    //     logInfo("Dump initialized\n");
+    // }
     plugin();
     if(kmBox) {
         kmNet_close();
