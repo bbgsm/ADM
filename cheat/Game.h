@@ -33,3 +33,7 @@ void removeInvalidUTF8(char *str);
 
 // 清空缓存
 void gameClear();
+
+void sleep_s(int s);
+
+void sleep_ms(int ms);

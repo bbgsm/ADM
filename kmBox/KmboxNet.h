@@ -1,7 +1,7 @@
 ﻿#pragma once
 #ifdef _WIN32 // Windows
 #include <Winsock2.h>
-#include <stdio.h>
+#include <Windows.h>
 #else // Linux
 #ifndef SOCKET
 #define SOCKET int

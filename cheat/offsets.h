@@ -16,6 +16,8 @@
 #define OFF_SHIELD 0x1A0            // 盾  int
 #define OFF_MAX_SHIELD 0x1A4        // 盾最大值 int
 #define OFF_HEALTH 0x328            // 血量   int
+#define OFF_MAX_HEALTH 0x470        // 最大血量   int
+
 #define OFF_TEAM 0x0338             // 团队id int
 #define OFF_NAME 0x0481             // 对象名称 string
 #define OFF_LIFE_STATE 0x690        // 存活状态 int

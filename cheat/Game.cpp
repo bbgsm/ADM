@@ -10,8 +10,19 @@
 #include "Vector2D.hpp"
 #include "offsets.h"
 
+#ifdef _WIN32 // Windows
+#include <Winsock2.h>
+#include <Windows.h>
+#else // Linux
+#include <cstring>
+#include <ctime>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <unistd.h>
+#endif
+
 // 骨骼地址缓存
-std::map<Addr, Addr> playerBones[10];
+std::map<Addr, Addr> playerBones[11];
 // 玩家名称缓存
 std::map<Addr, char[32]> playerNames;
 
@@ -133,7 +144,23 @@ void removeInvalidUTF8(char *str) {
 
 void gameClear() {
     playerNames.clear();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 11; i++) {
         playerBones[i].clear();
     }
+}
+
+void sleep_s(int s) {
+#if _WIN32
+    Sleep((s * 1000));
+#else
+    sleep(s);
+#endif
+}
+
+void sleep_ms(int ms) {
+#ifdef _WIN32
+    Sleep(ms);
+#else
+    usleep(ms * 1000);
+#endif
 }

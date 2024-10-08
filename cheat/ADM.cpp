@@ -32,6 +32,8 @@ struct OObject {
     int distance = 0;
     // 血量
     int health = 0;
+    // 最大血量
+    int maxHealth = 0;
     // 护盾值/最大护盾值
     int shieldHealth[2] = {0};
     // 名称下标
@@ -93,10 +95,10 @@ int maxDisplayObjectCount = 1000;
 // 物品列表读取起始下标
 int beginObjectIndex = maxPlayer;
 
-/*** 物资***/
+/*** 物资 ***/
 OObject *swapObjects = new OObject[1000];
 int objectCount = 0;
-/*** 物资***/
+/*** 物资 ***/
 
 EntityAddr *entityAddrs = new EntityAddr[10000];
 std::map<Addr, Vector3D> objectsMap;
@@ -104,6 +106,7 @@ std::mutex entityMutex;
 std::mutex objMutex;
 std::mutex webMutex;
 
+/*** 自瞄 ***/
 float screenCenterX = 0;
 float screenCenterY = 0;
 int aimBotX = 0;
@@ -136,15 +139,18 @@ bool aimBot = true;
 
 // 是否开镜
 bool isAim = false;
+/*** 自瞄 ***/
 
 mINI::INIStructure ini;
 mINI::INIFile *iniFile;
 
 std::map<int, std::string> mapNames = {
-{236, "3倍镜"},  {201, "紫头"},   {202, "金头"},   {195, "医疗箱"},   {280, "涡轮"},         {240, "10倍镜"},
-{194, "凤凰"},   {197, "大电"},   {224, "蓝包"},   {225, "紫包"},     {226, "金包"},         {229, "手雷"},
-{228, "铝热剂"}, {230, "电弧星"}, {329, "升级包"}, {270, "枪托(紫)"}, {258, "能量弹夹(紫)"}, {259, "能量弹夹(金)"},
-{49, "R99"},     {19, "专注"},    {132, "波赛克"}, {1, "克雷贝尔"},   {227, "手刀"},
+{236, "3倍镜"},    {201, "紫头"},         {202, "金头"},         {195, "医疗箱"},
+{280, "涡轮"},     {240, "10倍镜"},       {194, "凤凰"},         {197, "大电"},
+{224, "蓝包"},     {225, "紫包"},         {226, "金包"},         /*       {229, "手雷"},
+{228, "铝热剂"}, {230, "电弧星"},*/ {329, "升级包"},
+{270, "枪托(紫)"}, {258, "能量弹夹(紫)"}, {259, "能量弹夹(金)"}, {49, "R99"},
+{19, "专注"},      {132, "波赛克"},       {1, "克雷贝尔"},       {227, "手刀"},
 };
 
 // 重置自瞄参数
@@ -250,7 +256,7 @@ void entityAddrsRead() {
         entityMutex.lock();
         mem->readV(entityAddrs, sizeof(EntityAddr) * 10000, entityList);
         entityMutex.unlock();
-        hv_delay(1000);
+        sleep_s(1);
     }
 }
 
@@ -269,8 +275,7 @@ void objTest() {
             memcpy(objectAddrs, entityAddrs, sizeof(EntityAddr) * count);
             entityMutex.unlock();
             Handle handle = mem->createScatter();
-            mem->executeReadScatter(handle);
-            mem->closeScatterHandle(handle);
+            mem->execAndCloseScatterHandle(handle);
             for (int i = 0; i < count; i++) {
                 Addr object = objectAddrs[i].addr;
                 if (!MemoryToolsBase::isAddrValid(object)) {
@@ -305,7 +310,7 @@ void objTest() {
                 // strcpy(cacheObjects[objectIndex].name, longToHex(object).c_str());
                 // strcpy(cacheObjects[objectIndex].name, std::to_string(itemId).c_str());
                 objectIndex++;
-                if (objectIndex >= 1000) {
+                if (objectIndex >= maxDisplayObjectCount) {
                     break;
                 }
             }
@@ -320,13 +325,13 @@ void objTest() {
             objectCount = 0;
         }
         // 延时10秒
-        hv_delay(5000);
+        sleep_s(10);
     }
     delete[] objectAddrs;
     delete[] cacheObjects;
 }
 
-bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *color) {
+bool handlePlayer(OObject &player, const OObject &localPlayer, Addr baseAddr, ImU32 *color) {
     mulong entityIndex = player.nameIndex - 1;
     getName(mem, baseAddr, entityIndex, player.name);
     // 团队id校验
@@ -354,10 +359,9 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     player.distance = dis;
     // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
     // player.health = ((health + shieldHealth) / (maxShieldHealth + maxHealth)) * 100
-    player.health = static_cast<int>(
-    (static_cast<float>(player.health + player.shieldHealth[0]) / (/* max health */ 100.0F + player.shieldHealth[1])) *
-    100.0F);
-
+    player.health = static_cast<int>((static_cast<float>(player.health + player.shieldHealth[0]) /
+                                      static_cast<float>(player.maxHealth + player.shieldHealth[1])) *
+                                     100.0F);
     /**** 自瞄预测 ****/
     // 延迟150ms左右计算两次坐标距离作为预测值并相加到每一帧上
     mlong time = getCurrentTime();
@@ -440,6 +444,7 @@ bool readPlayer(OObject &player, OObject &localPlayer, Addr baseAddr, ImU32 *col
     lastVisTimeMap[player.addr] = player.lastVisTime;
     return true;
 }
+
 void surface(Addr baseAddr) {
     logInfo("Screen width: %d height %d\n", render.screenWidth, render.screenHeight);
     screenCenterX = render.screenWidth / 2;
@@ -497,7 +502,8 @@ void surface(Addr baseAddr) {
         if (!render.drawBegin()) {
             continue;
         }
-        bool gameState = mem->readB(baseAddr, OFF_GAME_STATE);
+
+        // bool gameState = mem->readB(baseAddr, OFF_GAME_STATE);
 
         ImDrawList *fpsDraw = ImGui::GetForegroundDrawList();
 
@@ -508,7 +514,7 @@ void surface(Addr baseAddr) {
         ImGui::SetNextWindowPos(ImVec2(render.screenWidth - 410, 10), ImGuiCond_FirstUseEver);
         ImGui::Begin("ADM");
 
-        ImGui::Checkbox("游戏状态", &gameState);
+        // ImGui::Checkbox("游戏状态", &gameState);
         ImGui::SliderFloat("框X偏移", &fx, 0.0f, 100.0f, "%.2f");
         ImGui::SliderFloat("框Y偏移", &fy, 0.0f, 100.0f, "%.2f");
         ImGui::SliderFloat("框线宽", &line, 0.0f, 10.0f, "%.1f");
@@ -555,7 +561,7 @@ void surface(Addr baseAddr) {
         }
         ImGui::End();
 
-        if (gameState) {
+        /*if (gameState)*/ {
             Addr localPlayerAddr = mem->readA(baseAddr, OFF_LOCAL_PLAYER);
             logDebug("localPlayerAddr: %llX\n", localPlayerAddr);
             OObject localPlayer;
@@ -569,11 +575,11 @@ void surface(Addr baseAddr) {
             mem->addScatterReadV(handle, &localPlayer.viewAngles, sizeof(Vector2D), localPlayerAddr, OFF_VIEW_ANGLES5);
             mem->addScatterReadV(handle, &isAim, sizeof(bool), localPlayerAddr, OFF_AIM);
             isAim = isAim && kmBox;
-            mem->executeReadScatter(handle);
-            mem->closeScatterHandle(handle);
+            mem->execAndCloseScatterHandle(handle);
             handle = mem->createScatter();
-            // Read local player head position
-            readBonePosition(mem, localPlayer.headPosition, localPlayer.playerPosition, localPlayer.addr, 0);
+            // 读取玩家头部坐标
+            readBonePosition(mem, localPlayer.headPosition, localPlayer.playerPosition, localPlayer.addr,
+                             0 /*0为头部,范围0-9*/);
             localPlayerPosition = localPlayer.playerPosition;
             vx = localPlayer.viewAngles.x;
             vy = localPlayer.viewAngles.y;
@@ -601,18 +607,18 @@ void surface(Addr baseAddr) {
                 mem->addScatterReadV(handle, &players[playerIndex].nameIndex, sizeof(int), player,
                                      OFF_INDEX_IN_NAMELIST);
                 mem->addScatterReadV(handle, &players[playerIndex].health, sizeof(int), player, OFF_HEALTH);
+                mem->addScatterReadV(handle, &players[playerIndex].maxHealth, sizeof(int), player, OFF_MAX_HEALTH);
                 mem->addScatterReadV(handle, players[playerIndex].shieldHealth,
-                                     sizeof(players[playerIndex].shieldHealth), player, OFF_SHIELD);
+                                     sizeof(int) * 2, player, OFF_SHIELD);
                 players[playerIndex].isPlayer = true;
                 players[playerIndex].addr = player;
                 playerIndex++;
             }
-            mem->executeReadScatter(handle);
-            mem->closeScatterHandle(handle);
+            mem->execAndCloseScatterHandle(handle);
             for (int i = 0; i < playerIndex; i++) {
                 OObject &player = players[i];
                 ImU32 color = IM_COL32(255, 0, 0, 255);
-                if (readPlayer(player, localPlayer, baseAddr, &color)) {
+                if (handlePlayer(player, localPlayer, baseAddr, &color)) {
                     drawPlayer(color, player, line);
                     playerCount++;
                 }
@@ -620,41 +626,36 @@ void surface(Addr baseAddr) {
             // 读取矩阵
             mem->readV(matrix, sizeof(matrix), baseAddr, OFF_MATRIX1);
             handle = mem->createScatter();
-
+            mem->execAndCloseScatterHandle(handle);
             for (int j = 0; j < cacheObjectCount; j++) {
-                mem->addScatterReadV(handle, &cacheObjects[j].teamId, sizeof(int), cacheObjects[j].addr, OFF_TEAM);
-                mem->addScatterReadV(handle, &cacheObjects[j].itemId, sizeof(int), cacheObjects[j].addr, OFF_ITEM_ID);
-                mem->addScatterReadV(handle, &cacheObjects[j].playerPosition, sizeof(Vector3D), cacheObjects[j].addr,
-                                     OFF_ORIGIN);
-                mem->addScatterReadV(handle, &cacheObjects[j].viewAngles, sizeof(Vector2D), cacheObjects[j].addr,
-                                     OFF_VIEW_ANGLES1);
-                mem->addScatterReadV(handle, &cacheObjects[j].lastVisTime, sizeof(float), cacheObjects[j].addr,
-                                     OFF_VISIBLE_TIME);
-                mem->addScatterReadV(handle, &cacheObjects[j].lifeState, sizeof(int), cacheObjects[j].addr,
-                                     OFF_LIFE_STATE);
-                mem->addScatterReadV(handle, &cacheObjects[j].nameIndex, sizeof(int), cacheObjects[j].addr,
-                                     OFF_INDEX_IN_NAMELIST);
-                mem->addScatterReadV(handle, &cacheObjects[j].health, sizeof(int), cacheObjects[j].addr, OFF_HEALTH);
-                mem->addScatterReadV(handle, cacheObjects[j].shieldHealth, sizeof(cacheObjects[j].shieldHealth),
-                                     cacheObjects[j].addr, OFF_SHIELD);
-            }
-            mem->executeReadScatter(handle);
-            mem->closeScatterHandle(handle);
-            for (int j = 0; j < cacheObjectCount; j++) {
-                if (cacheObjects[j].isPlayer) { // 机器人bot
+                OObject &cacheObject = cacheObjects[j];
+                if (cacheObject.isPlayer) {
+                    mem->readV(&cacheObject.teamId, sizeof(int), cacheObject.addr, OFF_TEAM);
+                    mem->readV(&cacheObject.itemId, sizeof(int), cacheObject.addr, OFF_ITEM_ID);
+                    mem->readV(&cacheObject.playerPosition, sizeof(Vector3D), cacheObject.addr, OFF_ORIGIN);
+                    mem->readV(&cacheObject.viewAngles, sizeof(Vector2D), cacheObject.addr, OFF_VIEW_ANGLES1);
+                    mem->readV(&cacheObject.lastVisTime, sizeof(float), cacheObject.addr, OFF_VISIBLE_TIME);
+                    mem->readV(&cacheObject.lifeState, sizeof(int), cacheObject.addr, OFF_LIFE_STATE);
+                    mem->readV(&cacheObject.nameIndex, sizeof(int), cacheObject.addr, OFF_INDEX_IN_NAMELIST);
+                    mem->readV(&cacheObject.health, sizeof(int), cacheObject.addr, OFF_HEALTH);
+                    mem->readV(&cacheObject.maxHealth, sizeof(int), cacheObject.addr, OFF_MAX_HEALTH);
+                    mem->readV(cacheObject.shieldHealth, sizeof(int) * 2, cacheObject.addr,
+                               OFF_SHIELD);
+                    /* 机器人、无人机、马文、载具 */
                     ImU32 color = IM_COL32(255, 0, 0, 255);
-                    if (readPlayer(cacheObjects[j], localPlayer, baseAddr, &color)) {
-                        drawPlayer(color, cacheObjects[j], line);
+                    if (handlePlayer(cacheObject, localPlayer, baseAddr, &color)) {
+                        drawPlayer(color, cacheObject, line);
                         playerCount++;
                     }
                 } else {
-                    if (!worldToScreen(cacheObjects[j].playerPosition, matrix, render.screenWidth, render.screenHeight,
-                                       cacheObjects[j].screenPosition)) {
+                    /* 物品 */
+                    if (!worldToScreen(cacheObject.playerPosition, matrix, render.screenWidth, render.screenHeight,
+                                       cacheObject.screenPosition)) {
                         continue;
                     }
-                    float dis = computeDistance(localPlayerPosition, cacheObjects[j].playerPosition) * distanceScal;
-                    cacheObjects[j].distance = dis;
-                    drawObject(IM_COL32(255, 255, 255, 255), cacheObjects[j]);
+                    float dis = computeDistance(localPlayerPosition, cacheObject.playerPosition) * distanceScal;
+                    cacheObject.distance = dis;
+                    drawObject(IM_COL32(255, 255, 255, 255), cacheObject);
                 }
             }
             webMutex.lock();
@@ -727,7 +728,7 @@ public:
                 removeInvalidUTF8(p.name);
                 objectJson["name"] = p.name;
             } else {
-                objectJson["isPlayer"] = p.isPlayer;
+                objectJson["isPlayer"] = false;
                 objectJson["x"] = p.playerPosition.x;
                 objectJson["y"] = p.playerPosition.y;
                 objectJson["z"] = p.playerPosition.z;
@@ -769,7 +770,7 @@ void sendWebsocket() {
                 MyContext::run(channel.second, mapObject, mapObjectCount);
             }
         }
-        hv_delay(100);
+        sleep_ms(100);
     }
     delete[] mapObject;
 }
@@ -778,15 +779,18 @@ void websocketServer() {
     int port = 6888;
     http.GET("/ping", [](const HttpContextPtr &ctx) { return ctx->send("pong", TEXT_HTML); });
     http.Static("/", "webMap");
+
     wws.onopen = [](const WebSocketChannelPtr &channel, const HttpRequestPtr &req) {
         logInfo("onopen: GET %s\n", req->Path().c_str());
         auto ctx = channel->newContextPtr<MyContext>();
         channels[channel.get()] = (channel.get());
     };
+
     wws.onmessage = [](const WebSocketChannelPtr &channel, const std::string &msg) {
         auto ctx = channel->getContextPtr<MyContext>();
         ctx->handleMessage(msg, channel->opcode);
     };
+
     wws.onclose = [](const WebSocketChannelPtr &channel) {
         channels.erase(channel.get());
         logInfo("onclose\n");
@@ -836,7 +840,7 @@ void aimBotThread() {
             aimBotX = 0;
             aimBotY = 0;
         }
-        hv_delay(10);
+        sleep_ms(10);
     }
 }
 
@@ -871,19 +875,19 @@ int main() {
     // 可以直接在游戏电脑上读取内存（不怕封号就逝逝）
     // mem = new DirectMemoryTools();
     // Dma读取内存
-    mem = new DmaMemoryTools();
-    if (!mem->init("r5apex.exe")) {
-        logInfo("Failed to initialized DMA\n");
-    } else {
-        logInfo("Successfully initialized DMA\n");
-    }
-    // 读取Dump的内存
-    // mem = new DumpMemoryTools();
-    // if (!mem->init("C:\\Users\\user\\Desktop\\test\\apex8\\dict.txt")) {
-    //     logInfo("Failed to initialized Dump\n");
+    // mem = new DmaMemoryTools();
+    // if (!mem->init("r5apex.exe")) {
+    //     logInfo("Failed to initialized DMA\n");
     // } else {
-    //     logInfo("Dump initialized\n");
+    //     logInfo("Successfully initialized DMA\n");
     // }
+    // 读取Dump的内存
+    mem = new DumpMemoryTools();
+    if (!mem->init("C:\\dumpMem\\apex11\\dict.txt")) {
+        logInfo("Failed to initialized Dump\n");
+    } else {
+        logInfo("Dump initialized\n");
+    }
     plugin();
     if(kmBox) {
         kmNet_close();
