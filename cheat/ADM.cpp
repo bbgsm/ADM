@@ -869,7 +869,7 @@ int main() {
     // 可以直接在游戏电脑上读取内存（不怕封号就逝逝）
     // mem = new DirectMemoryTools();
     // Dma读取内存
-    // mem = new DmaMemoryTools();
+    mem = new DmaMemoryTools();
     if (!mem->init("r5apex.exe")) {
         logInfo("Failed to initialized DMA\n");
     } else {
