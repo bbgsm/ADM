@@ -332,7 +332,7 @@ void objTest() {
 }
 
 bool handlePlayer(OObject &player, const OObject &localPlayer, Addr baseAddr, ImU32 *color) {
-    mulong entityIndex = player.nameIndex - 1;
+    int entityIndex = player.nameIndex - 1;
     getName(mem, baseAddr, entityIndex, player.name);
     // 团队id校验
     if (player.teamId < 0 || player.teamId > 100) {
@@ -628,7 +628,6 @@ void surface(Addr baseAddr) {
                 OObject &cacheObject = cacheObjects[j];
                 if (cacheObject.isPlayer) {
                     mem->readV(&cacheObject.teamId, sizeof(int), cacheObject.addr, OFF_TEAM);
-                    mem->readV(&cacheObject.itemId, sizeof(int), cacheObject.addr, OFF_ITEM_ID);
                     mem->readV(&cacheObject.playerPosition, sizeof(Vector3D), cacheObject.addr, OFF_ORIGIN);
                     mem->readV(&cacheObject.viewAngles, sizeof(Vector2D), cacheObject.addr, OFF_VIEW_ANGLES1);
                     mem->readV(&cacheObject.lastVisTime, sizeof(float), cacheObject.addr, OFF_VISIBLE_TIME);

@@ -50,7 +50,10 @@ void readBonePosition(MemoryToolsBase *mem, Vector3D &headPosition, Vector3D &or
     headPosition.z = matrix[2][3] + origin.z;
 }
 
-void getName(MemoryToolsBase *mem, Addr baseAddr, mulong index, char *name) {
+void getName(MemoryToolsBase *mem, Addr baseAddr, int index, char *name) {
+    if (index < 0 || index > 1000000) {
+        return;
+    }
     index *= 0x18;
     Addr addr = baseAddr + OFF_NAME_LIST + index;
     if (playerNames.contains(addr)) {
