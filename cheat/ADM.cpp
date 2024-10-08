@@ -72,8 +72,8 @@ float distanceScal = 0.025;
 const int maxPlayer = 100;
 std::map<Addr, float> lastVisTimeMap;
 
-float fx = 0;
-float fy = 0;
+float boxX = 0;
+float boxY = 0;
 float line = 1;
 float range = 300;
 float matrix[16];
@@ -139,6 +139,11 @@ bool aimBot = true;
 
 // 是否开镜
 bool isAim = false;
+
+char kmBoxIP[16] = "";
+char kmBoxPort[6] = "";
+char kmBoxMac[18] = "";
+
 /*** 自瞄 ***/
 
 mINI::INIStructure ini;
@@ -397,8 +402,8 @@ bool handlePlayer(OObject &player, const OObject &localPlayer, Addr baseAddr, Im
     worldToScreen(player.headPosition, matrix, render.screenWidth, render.screenHeight, headScreenPosition);
     player.screenPosition.h = abs(abs(player.screenPosition.y) - abs(headScreenPosition.y));
     player.screenPosition.w = player.screenPosition.h / 2.0f;
-    player.screenPosition.x += fx;
-    player.screenPosition.y += fy - player.screenPosition.h;
+    player.screenPosition.x += boxX;
+    player.screenPosition.y += boxY - player.screenPosition.h;
     int d = compute2Distance({player.screenPosition.x, player.screenPosition.y}, {screenCenterX, screenCenterY});
 
     // 如果盒子初始化完成和开镜
@@ -445,7 +450,64 @@ bool handlePlayer(OObject &player, const OObject &localPlayer, Addr baseAddr, Im
     return true;
 }
 
+void loadConfig() {
+    std::string ip = ini["kmBox"]["ip"];
+    std::string port = ini["kmBox"]["port"];
+    std::string uuid = ini["kmBox"]["uuid"];
+
+    std::string box_x = ini["settings"]["box_x"];
+    std::string box_y = ini["settings"]["box_y"];
+    std::string line_str = ini["settings"]["line"];
+    std::string range_str = ini["settings"]["range"];
+    std::string max_display_object_count = ini["settings"]["max_display_object_count"];
+    std::string max_object_count = ini["settings"]["max_object_count"];
+    std::string begin_object_index = ini["settings"]["begin_object_index"];
+    std::string aim_bot = ini["settings"]["aim_bot"];
+    std::string aim_bot_speed = ini["settings"]["aim_bot_speed"];
+    std::string aim_random = ini["settings"]["aim_random"];
+    std::string aim_prediction = ini["settings"]["aim_prediction"];
+    std::string prediction_interval_time = ini["settings"]["prediction_interval_time"];
+
+    if (!box_x.empty()) {
+        boxX = atof(box_x.c_str());
+    }
+    if (!box_y.empty()) {
+        boxY = atof(box_y.c_str());
+    }
+    if (!line_str.empty()) {
+        line = atof(line_str.c_str());
+    }
+    if (!range_str.empty()) {
+        range = atof(range_str.c_str());
+    }
+    if (!max_display_object_count.empty()) {
+        maxDisplayObjectCount = atoi(max_display_object_count.c_str());
+    }
+    if (!max_object_count.empty()) {
+        maxObjectCount = atoi(max_object_count.c_str());
+    }
+    if (!begin_object_index.empty()) {
+        beginObjectIndex = atoi(begin_object_index.c_str());
+    }
+    if (!aim_bot.empty()) {
+        aimBot = atoi(aim_bot.c_str()) > 0;
+    }
+    if (!aim_bot_speed.empty()) {
+        aimBotSpeed = atoi(aim_bot_speed.c_str());
+    }
+    if (!aim_random.empty()) {
+        aimRandom = atoi(aim_random.c_str()) > 0;
+    }
+    if (!aim_prediction.empty()) {
+        aimPrediction = atoi(aim_prediction.c_str()) > 0;
+    }
+    if (!prediction_interval_time.empty()) {
+        predictionIntervalTime = atoi(prediction_interval_time.c_str());
+    }
+}
+
 void surface(Addr baseAddr) {
+    loadConfig();
     logInfo("Screen width: %d height %d\n", render.screenWidth, render.screenHeight);
     screenCenterX = render.screenWidth / 2;
     screenCenterY = render.screenHeight / 2;
@@ -460,23 +522,6 @@ void surface(Addr baseAddr) {
     int playerIndex = 0;
 
     /******* kmBox初始化 *******/
-    char kmBoxIP[16] = "";
-    char kmBoxPort[6] = "";
-    char kmBoxMac[18] = "";
-
-    std::string ip = ini["kmBox"]["ip"];
-    std::string port = ini["kmBox"]["port"];
-    std::string uuid = ini["kmBox"]["uuid"];
-
-    if (!ip.empty()) {
-        strcpy(kmBoxIP, ip.c_str());
-    }
-    if (!port.empty()) {
-        strcpy(kmBoxPort, port.c_str());
-    }
-    if (!uuid.empty()) {
-        strcpy(kmBoxMac, uuid.c_str());
-    }
     if (strlen(kmBoxIP) > 0 && strlen(kmBoxMac) > 0 && strlen(kmBoxPort) > 0) {
         if (kmNet_init(kmBoxIP, kmBoxPort, kmBoxMac) != 0) {
             logInfo("Failed to initialized KmBox\n");
@@ -515,23 +560,59 @@ void surface(Addr baseAddr) {
         ImGui::Begin("ADM");
 
         // ImGui::Checkbox("游戏状态", &gameState);
-        ImGui::SliderFloat("框X偏移", &fx, 0.0f, 100.0f, "%.2f");
-        ImGui::SliderFloat("框Y偏移", &fy, 0.0f, 100.0f, "%.2f");
-        ImGui::SliderFloat("框线宽", &line, 0.0f, 10.0f, "%.1f");
-        ImGui::SliderFloat("显示范围(米)", &range, 0.0f, 10000.0f, "%.1f");
+        if(ImGui::SliderFloat("框X偏移", &boxX, 0.0f, 100.0f, "%.2f")) {
+            ini["settings"]["box_x"] = std::to_string(boxX);
+            iniFile->write(ini);
+        }
+        if(ImGui::SliderFloat("框Y偏移", &boxY, 0.0f, 100.0f, "%.2f")) {
+            ini["settings"]["box_y"] = std::to_string(boxX);
+            iniFile->write(ini);
+        }
+        if(ImGui::SliderFloat("框线宽", &line, 0.0f, 10.0f, "%.1f")) {
+            ini["settings"]["line"] = std::to_string(line);
+            iniFile->write(ini);
+        }
+        if(ImGui::SliderFloat("显示范围(米)", &range, 0.0f, 10000.0f, "%.1f")) {
+            ini["settings"]["range"] = std::to_string(range);
+            iniFile->write(ini);
+        }
         ImGui::SliderFloat("水平视角", &vx, -180, 180, "%.6f");
         ImGui::SliderFloat("垂直视角", &vy, -180, 180, "%.6f");
-        ImGui::SliderInt("最大显示物品数", &maxDisplayObjectCount, 0, 1000);
-        ImGui::SliderInt("最大读取物品数", &maxObjectCount, 0, 10000);
-        ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, maxPlayer, 10000);
+        if(ImGui::SliderInt("最大显示物品数", &maxDisplayObjectCount, 0, 1000)) {
+            ini["settings"]["max_display_object_count"] = std::to_string(maxDisplayObjectCount);
+            iniFile->write(ini);
+        }
+        if(ImGui::SliderInt("最大读取物品数", &maxObjectCount, 0, 10000)) {
+            ini["settings"]["max_object_count"] = std::to_string(maxObjectCount);
+            iniFile->write(ini);
+        }
+        if(ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, maxPlayer, 10000)) {
+            ini["settings"]["begin_object_index"] = std::to_string(beginObjectIndex);
+            iniFile->write(ini);
+        }
         ImGui::Text("辅助瞄准配置:");
-        ImGui::Checkbox("辅助瞄准", &aimBot);
+        if(ImGui::Checkbox("辅助瞄准", &aimBot)) {
+            ini["settings"]["aim_bot"] = std::to_string(aimBot);
+            iniFile->write(ini);
+        }
         if (aimBot) {
-            ImGui::SliderFloat("瞄准速度", &aimBotSpeed, 1.0f, 20.0f, "%.0f");
-            ImGui::Checkbox("随机瞄准(上半身范围)", &aimRandom);
-            ImGui::Checkbox("开启自瞄预测", &aimPrediction);
+            if(ImGui::SliderFloat("瞄准速度", &aimBotSpeed, 1.0f, 20.0f, "%.0f")) {
+                ini["settings"]["aim_bot_speed"] = std::to_string(aimBotSpeed);
+                iniFile->write(ini);
+            }
+            if(ImGui::Checkbox("随机瞄准(上半身范围)", &aimRandom)) {
+                ini["settings"]["aim_random"] = std::to_string(aimRandom);
+                iniFile->write(ini);
+            }
+            if(ImGui::Checkbox("开启自瞄预测", &aimPrediction)) {
+                ini["settings"]["aim_prediction"] = std::to_string(aimPrediction);
+                iniFile->write(ini);
+            }
             if (aimPrediction) {
-                ImGui::SliderInt("预测间隔时间(ms)", &predictionIntervalTime, 0, 1000);
+                if(ImGui::SliderInt("预测间隔时间(ms)", &predictionIntervalTime, 0, 1000)) {
+                    ini["settings"]["prediction_interval_time"] = std::to_string(predictionIntervalTime);
+                    iniFile->write(ini);
+                }
             }
         }
         ImGui::Text("kmBox配置:");
