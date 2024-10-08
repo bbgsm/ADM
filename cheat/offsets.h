@@ -2,12 +2,14 @@
 // 游戏版本: v3.0.81.36
 
 /*** r5apex.exe 偏移  ***/
-#define OFF_GAME_STATE 0x1EC1FC0     // 对局是否进行 bool
+#define OFF_GAME_STATE 0xAFBC608     // 对局是否进行 int 0x1EC1FC0 0xAFBC60C 0xAFBC610 0xAFBC608
 #define OFF_ENTITY_LIST 0x1F61048    // 对象数组(玩家，物品) 大小10000 * 32
 #define OFF_LOCAL_PLAYER 0x24342B8   // 操作玩家指针
 #define OFF_NAME_LIST 0xD426160      // 名称字典指针
 #define OFF_MATRIX1 0x2429450        // 4x4矩阵 float[16]
 #define OFF_LEVEL_NAME 0x18356C4     // 对局名称
+#define OFF_FIRE 0xCF372E8           // (自己)是否开火 bool
+#define OFF_FIRE1 0x1752FC4           // 鼠标左键是否点击 bool
 /*** r5apex.exe 偏移 ***/
 
 /*** 玩家，物品 偏移 ***/
@@ -27,9 +29,6 @@
 #define OFF_ITEM_ID 0x1568          // 物品id int
 #define OFF_VISIBLE_TIME 0x19A0     // 最后可见时间 float(一直可见数值一直会增大)
 #define OFF_ARMOR_TYPE  0x46C4      // 盾类型
-
-#define OFF_FIRE 0x1DB4             // 是否开火 int == 1 开火
-#define OFF_FIRE1 0x3308            // 是否开火 int == 1 开火
 
 #define OFF_BOT 0x1560             // int == 2 可能等于 机器人
 

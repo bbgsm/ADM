@@ -17,6 +17,7 @@
 #include "hmutex.h"
 #include "ini.h"
 #include "offsets.h"
+#include "objects.h"
 
 MemoryToolsBase *mem;
 Render render;
@@ -149,14 +150,6 @@ char kmBoxMac[18] = "";
 mINI::INIStructure ini;
 mINI::INIFile *iniFile;
 
-std::map<int, std::string> mapNames = {
-{236, "3倍镜"},    {201, "紫头"},         {202, "金头"},         {195, "医疗箱"},
-/*{280, "装填器"}, */    {240, "10倍镜"},       {194, "凤凰"},         {197, "大电"},
-{224, "蓝包"},     {225, "紫包"},         {226, "金包"},         /*       {229, "手雷"},
-{228, "铝热剂"}, {230, "电弧星"},*/ {329, "升级包"},
-{270, "枪托(紫)"}, {258, "能量弹夹(紫)"}, {259, "能量弹夹(金)"}, {49, "R99"},
-{19, "专注"},      {132, "波赛克"},       {1, "克雷贝尔"},       {227, "手刀"},
-};
 
 // 重置自瞄参数
 void resetAimBot() {
@@ -468,6 +461,16 @@ void loadConfig() {
     std::string aim_prediction = ini["settings"]["aim_prediction"];
     std::string prediction_interval_time = ini["settings"]["prediction_interval_time"];
 
+    if (!ip.empty()) {
+        strcpy(kmBoxIP, ip.c_str());
+    }
+    if (!port.empty()) {
+        strcpy(kmBoxPort, port.c_str());
+    }
+    if (!uuid.empty()) {
+        strcpy(kmBoxMac, uuid.c_str());
+    }
+
     if (!box_x.empty()) {
         boxX = atof(box_x.c_str());
     }
@@ -531,6 +534,8 @@ void surface(Addr baseAddr) {
             kmBox = true;
         }
     }
+    Handle handle = mem->createScatter();
+
     /******* kmBox初始化 *******/
     while (true) {
         entityMutex.lock();
@@ -548,7 +553,7 @@ void surface(Addr baseAddr) {
             continue;
         }
 
-        // bool gameState = mem->readB(baseAddr, OFF_GAME_STATE);
+        bool gameState = mem->readI(baseAddr, OFF_GAME_STATE) != 0;
 
         ImDrawList *fpsDraw = ImGui::GetForegroundDrawList();
 
@@ -559,7 +564,7 @@ void surface(Addr baseAddr) {
         ImGui::SetNextWindowPos(ImVec2(render.screenWidth - 410, 10), ImGuiCond_FirstUseEver);
         ImGui::Begin("ADM");
 
-        // ImGui::Checkbox("游戏状态", &gameState);
+        ImGui::Checkbox("游戏状态", &gameState);
         if(ImGui::SliderFloat("框X偏移", &boxX, 0.0f, 100.0f, "%.2f")) {
             ini["settings"]["box_x"] = std::to_string(boxX);
             iniFile->write(ini);
@@ -642,22 +647,20 @@ void surface(Addr baseAddr) {
         }
         ImGui::End();
 
-        /*if (gameState)*/ {
+        if (gameState) {
             Addr localPlayerAddr = mem->readA(baseAddr, OFF_LOCAL_PLAYER);
             logDebug("localPlayerAddr: %llX\n", localPlayerAddr);
             OObject localPlayer;
             localPlayer.isPlayer = true;
             localPlayer.addr = localPlayerAddr;
-            Handle handle = mem->createScatter();
             mem->addScatterReadV(handle, &localPlayer.playerPosition, sizeof(Vector3D), localPlayerAddr, OFF_ORIGIN);
             mem->addScatterReadV(handle, &localPlayer.teamId, sizeof(int), localPlayerAddr, OFF_TEAM);
             mem->addScatterReadV(handle, &localPlayer.nameIndex, sizeof(int), localPlayerAddr, OFF_INDEX_IN_NAMELIST);
             mem->addScatterReadV(handle, &localPlayer.itemId, sizeof(int), localPlayerAddr, OFF_ITEM_ID);
             mem->addScatterReadV(handle, &localPlayer.viewAngles, sizeof(Vector2D), localPlayerAddr, OFF_VIEW_ANGLES5);
             mem->addScatterReadV(handle, &isAim, sizeof(bool), localPlayerAddr, OFF_AIM);
+            mem->executeReadScatter(handle);
             isAim = isAim && kmBox;
-            mem->execAndCloseScatterHandle(handle);
-            handle = mem->createScatter();
             // 读取玩家头部坐标
             readBonePosition(mem, localPlayer.headPosition, localPlayer.playerPosition, localPlayer.addr,
                              0 /*0为头部,范围0-9*/);
@@ -694,7 +697,7 @@ void surface(Addr baseAddr) {
                 players[playerIndex].addr = player;
                 playerIndex++;
             }
-            mem->execAndCloseScatterHandle(handle);
+            mem->executeReadScatter(handle);
             for (int i = 0; i < playerIndex; i++) {
                 OObject &player = players[i];
                 ImU32 color = IM_COL32(255, 0, 0, 255);
@@ -750,6 +753,7 @@ void surface(Addr baseAddr) {
         }
         render.drawEnd();
     }
+    mem->closeScatterHandle(handle);
     delete[] players;
     delete[] playerAddrs;
     delete[] cacheObjects;
