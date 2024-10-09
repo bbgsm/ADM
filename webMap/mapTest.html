@@ -79,6 +79,18 @@
 </div>
 
 <div>
+    <label for="x">x</label>
+    <input type="range" min="1" max="500" value="0" id="x">
+    <span id="xValueView">0</span>
+</div>
+
+<div>
+    <label for="y">y</label>
+    <input type="range" min="1" max="500" value="0" id="y">
+    <span id="yValueView">0</span>
+</div>
+
+<div>
     <label for="range">显示范围</label>
     <input type="range" min="0" max="360" value="500" id="range">
     <span id="rangeValueView">500</span>
@@ -106,6 +118,8 @@
 
     var nameValue = '';
     var scale = 50.0;
+    var x = 0;
+    var y = 0;
     var range = 500;
     var displayTeam = true;
     var displayObject = true;
@@ -172,6 +186,19 @@
         scale = parseFloat(this.value);
         document.getElementById('scaleValueView').textContent = scale;
     };
+
+    document.getElementById('x').oninput = function () {
+        localStorage.setItem('x', this.value);
+        x = parseFloat(this.value);
+        document.getElementById('xValueView').textContent = x;
+    };
+
+    document.getElementById('y').oninput = function () {
+        localStorage.setItem('y', this.value);
+        y = parseFloat(this.value);
+        document.getElementById('yValueView').textContent = y;
+    };
+
     document.getElementById('range').oninput = function () {
         localStorage.setItem('range', this.value);
         range = parseInt(this.value, 10);
@@ -189,6 +216,18 @@
             document.getElementById('scale').value = scaleValue;
             scale = parseFloat(scaleValue);
             document.getElementById('scaleValueView').textContent = scale;
+        }
+        const xValue = localStorage.getItem('x');
+        if (xValue) {
+            document.getElementById('x').value = xValue;
+            x = parseFloat(xValue);
+            document.getElementById('xValueView').textContent = x;
+        }
+        const yValue = localStorage.getItem('y');
+        if (yValue) {
+            document.getElementById('y').value = yValue;
+            y = parseFloat(yValue);
+            document.getElementById('yValueView').textContent = y;
         }
         const rangeValue = localStorage.getItem('range');
         if (rangeValue) {
@@ -297,7 +336,7 @@
         // ctx.globalAlpha = 0.8;
 
         ctx.fillStyle = backgroundColor;
-        ctx.fillRect(x - textWidth / 2, y + 15, textWidth , textHeight);
+        ctx.fillRect(x - textWidth / 2, y + 15, textWidth, textHeight);
         ctx.fillStyle = textColor;
         ctx.font = '16px Arial';
         ctx.fillText(text, x - textWidth / 2, y + 15 + textHeight);
@@ -365,20 +404,20 @@
             if (player.isPlayer && player.health <= 0) {
                 return;
             }
-            let mapPosition = rotate(
-                localPlayer, player
-            );
-            let x = mapPosition.x + centerX;
-            let y = mapPosition.y + centerY - 10;
-            if (x < 0) {
-                x = 0;
-            } else if (x > 500) {
-                x = 500
+            // let mapPosition = rotate(
+            //     localPlayer, player
+            // );
+            let xx = player.x / scale + x /*+ centerX;*/
+            let yy = player.y / scale + y/* + centerY - 10;*/
+            if (xx < 0) {
+                xx = 0;
+            } else if (xx > 500) {
+                xx = 500
             }
-            if (y < 0) {
-                y = 0;
-            } else if (y > 500) {
-                y = 500
+            if (yy < 0) {
+                yy = 0;
+            } else if (yy > 500) {
+                yy = 500
             }
             if (player.isPlayer) {
                 if (isPointingTo(player, localPlayer)) {
@@ -391,18 +430,18 @@
                     }
                 }
                 const text = " (高度:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
-                drawTriangle(x, y, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
-                drawTextWithBackground(x, y, textBackgroundColor, 'white', text);
+                drawTriangle(xx, yy, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
+                drawTextWithBackground(xx, yy, textBackgroundColor, 'white', text);
             } else {
                 const playerName = player.name + " (" + dis + "M)";
                 if (isPointingTo(localPlayer, player)) {
-                    drawTextWithBackground(x, y, selectObjectBackgroundColor, 'white', playerName);
+                    drawTextWithBackground(xx, yy, selectObjectBackgroundColor, 'white', playerName);
                 } else {
                     if (itemColor.has(player.itemId)) {
                         let textColor = itemColor.get(player.itemId);
-                        drawTextWithBackground(x, y, textBackgroundColor, textColor, playerName);
+                        drawTextWithBackground(xx, yy, textBackgroundColor, textColor, playerName);
                     } else {
-                        drawTextWithBackground(x, y, textBackgroundColor, 'white', playerName);
+                        drawTextWithBackground(xx, yy, textBackgroundColor, 'white', playerName);
                     }
 
                 }
@@ -424,8 +463,8 @@
         }
     }
 
-    const ws = new WebSocket('ws://' + window.location.host);
-    // const ws = new WebSocket('ws://127.0.0.1:6888');
+    // const ws = new WebSocket('ws://' + window.location.host);
+    const ws = new WebSocket('ws://127.0.0.1:6888');
     ws.onmessage = function (event) {
         const players = JSON.parse(event.data);
         if (!players || players.length === 0) return;
@@ -442,11 +481,11 @@
     };
 
     /**** test code ****/
-    /*function generateRandomPlayer() {
+/*    function generateRandomPlayer() {
         return {
             name: 'Player' + Math.floor(Math.random() * 1000),
-            x: Math.random() * 300,
-            y: Math.random() * 300,
+            x: Math.random() * 500,
+            y: Math.random() * 500,
             z: 0,
             isPlayer: (parseInt(Math.random() * 100) % 2 === 0),
             health: Math.floor(Math.random() * 101),
@@ -478,7 +517,7 @@
         });
         players.sort((a, b) => a.isPlayer - b.isPlayer);
         drawPlayers(players);
-    }, 1000);*/
+    }, 100);*/
     /**** test code ****/
 </script>
 

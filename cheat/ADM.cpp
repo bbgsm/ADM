@@ -330,7 +330,7 @@ void objTest() {
 }
 
 bool handlePlayer(OObject &player, const OObject &localPlayer, Addr baseAddr, ImU32 *color) {
-    int entityIndex = player.nameIndex - 1;
+    int entityIndex = player.nameIndex;
     getName(mem, baseAddr, entityIndex, player.name);
     // 团队id校验
     if (player.teamId < 0 || player.teamId > 100) {
@@ -714,7 +714,7 @@ void surface(Addr baseAddr) {
                 OObject &cacheObject = cacheObjects[j];
                 if (cacheObject.isPlayer) {
                     /* 机器人、无人机、马文、载具 */
-                    bots[botCount++] = cacheObject;
+                    bots[botCount] = cacheObject;
                     OObject &bot = bots[botCount++];
                     mem->addScatterReadV(handle, &bot.teamId, sizeof(int), bot.addr, OFF_TEAM);
                     mem->addScatterReadV(handle, &bot.playerPosition, sizeof(Vector3D), bot.addr, OFF_ORIGIN);

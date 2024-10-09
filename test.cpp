@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     // 读取Dump的内存
     mem = new DumpMemoryTools();
     mem1 = new DumpMemoryTools();
-    if (!mem->init("C:\\dumpMem\\apex10\\dict.txt")) {
+    if (!mem->init("C:\\dumpMem\\apex12\\dict.txt")) {
         logInfo("Failed to initialized Dump\n");
     } else {
         logInfo("Dump initialized\n");
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
     } else {
         logInfo("Dump initialized\n");
     }
-    test();
+    // test();
     Addr baseAddr = mem->getBaseAddr();
     Addr localPlayer = mem->readA(baseAddr, OFF_LOCAL_PLAYER);
     printf("localPlayer: %llX\n", localPlayer);
