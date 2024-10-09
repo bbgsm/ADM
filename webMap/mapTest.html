@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMap</title>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+        }
+
+        /* 设置地图容器 */
+        .map {
+            width: 500px; /* 地图的宽度 */
+            height: 500px; /* 地图的高度 */
+            background-image: url("mp_rr_divided_moon_mu1.jpg"); /* 地图的背景色为黑色 */
+            border: 1px solid #ccc; /* 地图的边框 */
+            position: relative; /* 使得红点可以相对定位 */
+            background-size: cover;
+        }
+
+        /* 设置中心点 */
+        .center-point {
+            width: 8px; /* 中心点的宽度 */
+            height: 8px; /* 中心点的高度 */
+            background-color: yellow; /* 中心点的颜色 */
+            border-radius: 50%; /* 中心点为圆形 */
+            position: absolute;
+            top: 50%; /* 垂直居中 */
+            left: 50%; /* 水平居中 */
+            transform: translate(-50%, -50%); /* 确保点的中心在地图中心 */
+        }
+
+        /* 设置中心到顶部的线 */
+        .center-line {
+            width: 2px; /* 线的宽度 */
+            height: 50%; /* 线的高度，为地图高度的一半 */
+            background-color: white; /* 线的颜色 */
+            position: absolute;
+            top: 0; /* 从顶部开始 */
+            left: 50%; /* 水平居中 */
+            transform: translateX(-50%); /* 使线条水平居中 */
+        }
+
+        .clearCache, #scale, #range, #nameInput, #displayTeamCheckBox, #displayObjectCheckBox {
+            margin-top: 10px;
+        }
+
+        .radio-inline {
+            display: inline-block;
+            margin-left: 30px; /* 调整每个选项之间的间距 */
+        }
+    </style>
+</head>
+<body>
+
+<div class="map" id="map">
+    <canvas id="mapCanvas" width="500" height="500"></canvas>
+    <div class="center-point"></div>
+    <div class="center-line"></div>
+</div>
+
+<div>
+    <label for="nameInput">名称</label>
+    <input type="text" id="nameInput" value=""/>
+</div>
+
+<div style="margin-top: 30px;margin-bottom: 30px" id="selectTeamPlayerCheckBox">
+    <span>选择队友</span>
+    <span id="teamPlayerRadioContainer">
+    </span>
+</div>
+
+<div>
+    <label for="scale">缩放比例</label>
+    <input type="range" min="1" max="200" value="50" id="scale">
+    <span id="scaleValueView">50</span>
+</div>
+
+<div>
+    <label for="range">显示范围</label>
+    <input type="range" min="0" max="360" value="500" id="range">
+    <span id="rangeValueView">500</span>
+</div>
+
+<div>
+    <label for="displayTeamCheckBox">显示队友</label>
+    <input type="checkbox" id="displayTeamCheckBox">
+</div>
+
+<div>
+    <label for="displayObjectCheckBox">显示物资</label>
+    <input type="checkbox" id="displayObjectCheckBox">
+</div>
+
+<div>
+    <button onclick="clearCache()" class="clearCache">清理缓存</button>
+</div>
+
+<script>
+
+    // 全局的角度偏移量，可以根据实际情况进行调整
+    var HORIZONTAL_OFFSET = 0; // 水平方向的角度偏移量
+    var VERTICAL_OFFSET = 20; // 垂直方向的角度偏移量
+
+    var nameValue = '';
+    var scale = 50.0;
+    var range = 500;
+    var displayTeam = true;
+    var displayObject = true;
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+    const teamColor = "#FFFFFF";                                  // 队友颜色
+    const warningColor = "#FF0000";                               // 警告颜色
+    const selectPlayerColor = 'rgba(255,252,70,1)';               // 选中玩家颜色
+    const selectObjectBackgroundColor = 'rgba(0, 200, 0, 0.6)';   // 选中物品颜色
+    const textBackgroundColor = 'rgba(0, 0, 0, 0.7)';             // 文本默认背景颜色
+    const colors = [
+        "#FF9633", // 桃色
+        "#00FF00", // 绿色
+        "#00ba90", // 水绿色
+        "#0000FF", // 蓝色
+        "#FFFF00", // 黄色
+        "#FF00FF", // 紫色
+        "#00FFFF", // 青色
+        "#8A2BE2", // 蓝紫色
+        "#FFA500", // 橙色
+        "#FFC0CB", // 粉色
+    ];
+
+    let teamList = [];
+    let itemColor = new Map([
+        [236, 'rgba(138, 43, 226, 1)'], // 3倍镜
+        [201, 'rgba(138, 43, 226, 1)'], // 紫头
+        [202, 'rgba(255, 215, 0, 1)'], // 金头
+        [195, 'rgba(255, 255, 255, 1)'], // 医疗箱
+        [280, 'rgba(255, 215, 0, 1)'], // 装填器
+        [240, 'rgba(255, 215, 0, 1)'], // 10倍镜
+        [193, 'rgba(138, 43, 226, 1)'], // 绝招加速器
+        [194, 'rgba(255, 255, 255, 1)'], // 凤凰
+        [197, 'rgba(255, 255, 255, 1)'], // 大电
+        [224, 'rgba(255, 255, 255, 1)'], // 蓝包
+        [225, 'rgba(138, 43, 226, 1)'], // 紫包
+        [226, 'rgba(255, 215, 0, 1)'], // 金包
+        [270, 'rgba(138, 43, 226, 1)'], // 枪托(紫)
+        [258, 'rgba(138, 43, 226, 1)'], // 能量弹夹(紫)
+        [259, 'rgba(255, 215, 0, 1)'], // 能量弹夹(金)
+        [49, 'rgba(255, 0, 0, 1)'], // R99
+        [19, 'rgba(255, 0, 0, 1)'], // 专注
+        [132, 'rgba(255, 0, 0, 1)'], // 波赛克
+        [1, 'rgba(255, 0, 0, 1)'], // 克雷贝尔
+        [227, 'rgba(255, 0, 0, 1)'], // 手刀
+    ]);
+
+    document.getElementById('displayTeamCheckBox').onchange = function () {
+        localStorage.setItem('displayTeam', this.checked);
+        displayTeam = this.checked;
+    };
+
+    document.getElementById('displayObjectCheckBox').onchange = function () {
+        localStorage.setItem('displayObject', this.checked);
+        displayObject = this.checked;
+    };
+
+    document.getElementById('nameInput').oninput = function () {
+        localStorage.setItem('nameInput', this.value);
+        nameValue = this.value;
+    };
+    document.getElementById('scale').oninput = function () {
+        localStorage.setItem('scale', this.value);
+        scale = parseFloat(this.value);
+        document.getElementById('scaleValueView').textContent = scale;
+    };
+    document.getElementById('range').oninput = function () {
+        localStorage.setItem('range', this.value);
+        range = parseInt(this.value, 10);
+        document.getElementById('rangeValueView').textContent = range;
+    };
+
+    window.onload = function () {
+        const nameInput = localStorage.getItem('nameInput');
+        if (nameInput) {
+            document.getElementById('nameInput').value = nameInput;
+            nameValue = nameInput;
+        }
+        const scaleValue = localStorage.getItem('scale');
+        if (scaleValue) {
+            document.getElementById('scale').value = scaleValue;
+            scale = parseFloat(scaleValue);
+            document.getElementById('scaleValueView').textContent = scale;
+        }
+        const rangeValue = localStorage.getItem('range');
+        if (rangeValue) {
+            document.getElementById('range').value = rangeValue;
+            range = parseInt(rangeValue, 10);
+            document.getElementById('rangeValueView').textContent = range;
+        }
+        const displayTeamValue = localStorage.getItem('displayTeam');
+        if (displayTeamValue !== null) {
+            document.getElementById('displayTeamCheckBox').checked = displayTeamValue === 'true';
+            displayTeam = displayTeamValue === 'true';
+        } else {
+            document.getElementById('displayTeamCheckBox').checked = true;
+        }
+        const displayObjectValue = localStorage.getItem('displayObject');
+        if (displayObjectValue !== null) {
+            document.getElementById('displayObjectCheckBox').checked = displayObjectValue === 'true';
+            displayObject = displayObjectValue === 'true';
+        } else {
+            document.getElementById('displayObjectCheckBox').checked = true;
+        }
+
+    };
+
+    // display Team Player
+    function setTeamOption(players) {
+        clearOption();
+        players.forEach((player, index) => {
+            const div = document.createElement('div');
+            div.classList.add('radio-inline');
+
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.id = `option${index}`;
+            radio.name = 'dynamicOptions';
+            radio.value = `option${index}`;
+
+            if (index === 0) {
+                radio.checked = true;
+            }
+
+            const label = document.createElement('label');
+            label.htmlFor = `option${index}`;
+            label.textContent = player.name;
+
+            label.addEventListener('click', function () {
+                nameValue = label.textContent
+                console.log(nameValue);
+            });
+
+            div.appendChild(radio);
+            div.appendChild(label);
+
+            const radioContainer = document.getElementById('teamPlayerRadioContainer');
+            radioContainer.appendChild(div);
+        })
+
+    }
+
+    function clearOption() {
+        const radioContainer = document.getElementById('teamPlayerRadioContainer');
+        radioContainer.innerHTML = '';
+    }
+
+    function distance(a, b) {
+        return Math.floor(Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2) + Math.pow(b.z - a.z, 2)) * 0.025);
+    }
+
+    function clearCache() {
+        localStorage.clear();
+        location.reload();
+    }
+
+    function normalizeAngle(angle) {
+        angle = angle % 360;
+        if (angle > 180) {
+            angle -= 360;
+        } else if (angle < -180) {
+            angle += 360;
+        }
+        return angle;
+    }
+
+    function drawTriangle(x, y, size, viewAnglesH, fillStyle) {
+        const normalizedAngle = normalizeAngle(viewAnglesH + HORIZONTAL_OFFSET);
+        ctx.save();
+
+        ctx.translate(x, y);
+        ctx.rotate(normalizedAngle / 360.0 * Math.PI * 2.0);
+
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 1.5); // 顶点
+        ctx.lineTo(size, size); // 右下角点
+        ctx.lineTo(-size, size); // 左下角点
+        ctx.closePath();
+
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    function drawTextWithBackground(x, y, backgroundColor, textColor, text) {
+        const textWidth = ctx.measureText(text).width;
+        const textHeight = 14;
+        // ctx.globalAlpha = 0.8;
+
+        ctx.fillStyle = backgroundColor;
+        ctx.fillRect(x - textWidth / 2, y + 15, textWidth , textHeight);
+        ctx.fillStyle = textColor;
+        ctx.font = '16px Arial';
+        ctx.fillText(text, x - textWidth / 2, y + 15 + textHeight);
+        ctx.restore();
+    }
+
+    function rotate(a, b) {
+        const angle = a.viewAnglesH / 360.0 * Math.PI * 2.0
+        const mapPosition = {};
+        const relativeX = (a.x - b.x) / scale;
+        const relativeY = (a.y - b.y) / scale;
+        mapPosition.x = relativeY * Math.cos(angle) - relativeX * Math.sin(angle);
+        mapPosition.y = relativeY * Math.sin(angle) + relativeX * Math.cos(angle);
+        return mapPosition;
+    }
+
+    function isPointingTo(a, b, tolerance = 10) {
+        // 计算从 a 到 b 的向量
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dz = b.z - a.z;
+
+        // 计算水平和垂直角度
+        const horizontalAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const verticalAngle = Math.atan2(dz, distance) * (180 / Math.PI);
+
+        // 检查视角是否在指定容差范围内
+        const isHorizontalAligned = Math.abs(horizontalAngle - a.viewAnglesH) <= tolerance;
+        const isVerticalAligned = Math.abs(verticalAngle - a.viewAnglesV + VERTICAL_OFFSET) <= 30; // 垂直视角因为坐标问题不准，先允许误差为30度
+
+        return isHorizontalAligned && isVerticalAligned;
+    }
+
+    function drawPlayers(players) {
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        let localPlayer = players.find(player => player.isPlayer && player.name === nameValue);
+        if (!localPlayer) return;
+
+        let newTeamList = [];
+        newTeamList.push(localPlayer);
+        players.forEach(player => {
+            if (player === localPlayer) {
+                return;
+            }
+            if (localPlayer.teamId === player.teamId) {
+                newTeamList.push(player);
+                if (!displayTeam) {
+                    return;
+                }
+            }
+
+            if (!displayObject && !player.isPlayer) {
+                return;
+            }
+            let dis = distance(localPlayer, player);
+            if (dis > range) {
+                return;
+            }
+            if (player.isPlayer && player.health <= 0) {
+                return;
+            }
+            let mapPosition = rotate(
+                localPlayer, player
+            );
+            let x = mapPosition.x + centerX;
+            let y = mapPosition.y + centerY - 10;
+            if (x < 0) {
+                x = 0;
+            } else if (x > 500) {
+                x = 500
+            }
+            if (y < 0) {
+                y = 0;
+            } else if (y > 500) {
+                y = 500
+            }
+            if (player.isPlayer) {
+                if (isPointingTo(player, localPlayer)) {
+                    playerColor = warningColor;
+                } else {
+                    if (isPointingTo(localPlayer, player)) {
+                        playerColor = selectPlayerColor;
+                    } else {
+                        playerColor = displayTeam && localPlayer.teamId === player.teamId ? teamColor : colors[player.teamId % 10];
+                    }
+                }
+                const text = " (高度:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
+                drawTriangle(x, y, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
+                drawTextWithBackground(x, y, textBackgroundColor, 'white', text);
+            } else {
+                const playerName = player.name + " (" + dis + "M)";
+                if (isPointingTo(localPlayer, player)) {
+                    drawTextWithBackground(x, y, selectObjectBackgroundColor, 'white', playerName);
+                } else {
+                    if (itemColor.has(player.itemId)) {
+                        let textColor = itemColor.get(player.itemId);
+                        drawTextWithBackground(x, y, textBackgroundColor, textColor, playerName);
+                    } else {
+                        drawTextWithBackground(x, y, textBackgroundColor, 'white', playerName);
+                    }
+
+                }
+            }
+        });
+        for (let i = 0; i < newTeamList.length; i++) {
+            let find = false;
+            for (let j = 0; j < teamList.length; j++) {
+                if (newTeamList[i].name === teamList[j].name) {
+                    find = true;
+                    break;
+                }
+            }
+            if (!find) {
+                teamList = newTeamList;
+                setTeamOption(teamList);
+                break;
+            }
+        }
+    }
+
+    const ws = new WebSocket('ws://' + window.location.host);
+    // const ws = new WebSocket('ws://127.0.0.1:6888');
+    ws.onmessage = function (event) {
+        const players = JSON.parse(event.data);
+        if (!players || players.length === 0) return;
+        players.sort((a, b) => a.isPlayer - b.isPlayer);
+        drawPlayers(players);
+    };
+
+    ws.onclose = function (event) {
+        console.log('WebSocket connection closed:', event);
+    };
+
+    ws.onerror = function (error) {
+        console.error('WebSocket error:', error);
+    };
+
+    /**** test code ****/
+    /*function generateRandomPlayer() {
+        return {
+            name: 'Player' + Math.floor(Math.random() * 1000),
+            x: Math.random() * 300,
+            y: Math.random() * 300,
+            z: 0,
+            isPlayer: (parseInt(Math.random() * 100) % 2 === 0),
+            health: Math.floor(Math.random() * 101),
+            viewAnglesH: Math.random() * 360,
+            viewAnglesV: Math.random() * 180 - 90,
+            distance: Math.random() * 100,
+            teamId: Math.floor(Math.random() * 10) + 1
+        };
+    }
+
+    const players = [];
+    setInterval(() => {
+        nameValue = 'Player1';
+        players.length = 0;
+        for (let i = 0; i < 100; i++) {
+            players.push(generateRandomPlayer());
+        }
+        players.push({
+            name: 'Player1',
+            x: 100,
+            y: 100,
+            z: 0,
+            isPlayer: true,
+            health: 100,
+            viewAnglesH: 0,
+            viewAnglesV: 0,
+            distance: 1,
+            teamId: 1
+        });
+        players.sort((a, b) => a.isPlayer - b.isPlayer);
+        drawPlayers(players);
+    }, 1000);*/
+    /**** test code ****/
+</script>
+
+</body>
+</html>

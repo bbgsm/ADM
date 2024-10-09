@@ -14,9 +14,6 @@
 #include <Winsock2.h>
 #include <Windows.h>
 #else // Linux
-#include <cstring>
-#include <ctime>
-#include <sys/select.h>
 #include <sys/time.h>
 #include <unistd.h>
 #endif
@@ -26,23 +23,25 @@ std::map<Addr, Addr> playerBones[11];
 // 玩家名称缓存
 std::map<Addr, char[32]> playerNames;
 
+constexpr int MAX_BONE_INDEX = 255;
+
 void readBonePosition(MemoryToolsBase *mem, Vector3D &headPosition, Vector3D &origin, Addr player, int id) {
-    static const int MAX_BONE_INDEX = 255;
     float matrix[3][4];
-    Addr &boneAddr = playerBones[id][player];
-    if (boneAddr == 0) {
+    Addr boneAddr = playerBones[id][player];
+    if (!boneAddr) {
         Addr model = mem->readA(player, OFF_STUDIO_HDR);
         Addr studioHdr = mem->readA(model + 0x8);
-        Addr hitboxCache = mem->readA(studioHdr + 0x34);
-        Addr hitboxArray = studioHdr + ((ushort)(hitboxCache & 0xFFFE) << (4 * (hitboxCache & 1)));
-        ushort indexCache = mem->readUS(hitboxArray + 0x4);
-        int hitboxIndex = ((ushort)(indexCache & 0xFFFE) << (4 * (indexCache & 1)));
-        ushort bone = mem->readUS(hitboxIndex + hitboxArray + (id * 0x20));
-        if (bone < 0 || bone > MAX_BONE_INDEX) {
+        Addr hitBoxCache = mem->readA(studioHdr + 0x34);
+        Addr hitBoxArray = studioHdr + (static_cast<ushort>(hitBoxCache & 0xFFFE) << (4 * (hitBoxCache & 1)));
+        ushort indexCache = mem->readUS(hitBoxArray + 0x4);
+        int hitBoxIndex = (static_cast<ushort>(indexCache & 0xFFFE) << (4 * (indexCache & 1)));
+        ushort bone = mem->readUS(hitBoxIndex + hitBoxArray + (id * 0x20));
+        if (bone > MAX_BONE_INDEX) {
             return;
         }
         Addr bones = mem->readA(player, OFF_BONES);
         boneAddr = bones + bone * sizeof(matrix);
+        playerBones[id][player] = boneAddr;
     }
     mem->readV(matrix, sizeof(matrix), boneAddr);
     headPosition.x = matrix[0][3] + origin.x;
@@ -51,20 +50,16 @@ void readBonePosition(MemoryToolsBase *mem, Vector3D &headPosition, Vector3D &or
 }
 
 void getName(MemoryToolsBase *mem, Addr baseAddr, int index, char *name) {
-    if (index < 0 || index > 1000000) {
-        return;
-    }
-    index *= 0x18;
-    Addr addr = baseAddr + OFF_NAME_LIST + index;
+    if (index < 0 || index > 1000000) return;
+    Addr addr = baseAddr + OFF_NAME_LIST + index * 0x18;
     if (playerNames.contains(addr)) {
         memcpy(name, playerNames[addr], 32);
-        return;
+    } else {
+        Addr nameAddr = mem->readA(addr);
+        mem->readV(name, 32, nameAddr);
+        name[31] = '\0';
+        memcpy(playerNames[addr], name, 32);
     }
-    //    logDebug("nameAddr: %llX\n", addr);
-    Addr nameAddr = mem->readA(addr);
-    mem->readV(name, 32, nameAddr);
-    name[31] = '\0';
-    memcpy(playerNames[addr], name, 32);
 }
 
 bool worldToScreen(const Vector3D &from, const float *matrix, float screenWidth, float screenHeight,

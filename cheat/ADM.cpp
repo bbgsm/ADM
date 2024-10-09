@@ -519,7 +519,9 @@ void surface(Addr baseAddr) {
     auto *players = new OObject[maxPlayer];
     auto *playerAddrs = new EntityAddr[maxPlayer];
     auto *cacheObjects = new OObject[1000];
+    auto *bots = new OObject[1000];
     int cacheObjectCount = 0;
+    int botCount = 0;
 
     int playerCount = 0;
     int playerIndex = 0;
@@ -534,9 +536,9 @@ void surface(Addr baseAddr) {
             kmBox = true;
         }
     }
-    Handle handle = mem->createScatter();
-
     /******* kmBox初始化 *******/
+
+    Handle handle = mem->createScatter();
     while (true) {
         entityMutex.lock();
         memcpy(playerAddrs, entityAddrs, sizeof(EntityAddr) * maxPlayer);
@@ -711,21 +713,18 @@ void surface(Addr baseAddr) {
             for (int j = 0; j < cacheObjectCount; j++) {
                 OObject &cacheObject = cacheObjects[j];
                 if (cacheObject.isPlayer) {
-                    mem->readV(&cacheObject.teamId, sizeof(int), cacheObject.addr, OFF_TEAM);
-                    mem->readV(&cacheObject.playerPosition, sizeof(Vector3D), cacheObject.addr, OFF_ORIGIN);
-                    mem->readV(&cacheObject.viewAngles, sizeof(Vector2D), cacheObject.addr, OFF_VIEW_ANGLES1);
-                    mem->readV(&cacheObject.lastVisTime, sizeof(float), cacheObject.addr, OFF_VISIBLE_TIME);
-                    mem->readV(&cacheObject.lifeState, sizeof(int), cacheObject.addr, OFF_LIFE_STATE);
-                    mem->readV(&cacheObject.nameIndex, sizeof(int), cacheObject.addr, OFF_INDEX_IN_NAMELIST);
-                    mem->readV(&cacheObject.health, sizeof(int), cacheObject.addr, OFF_HEALTH);
-                    mem->readV(&cacheObject.maxHealth, sizeof(int), cacheObject.addr, OFF_MAX_HEALTH);
-                    mem->readV(cacheObject.shieldHealth, sizeof(int) * 2, cacheObject.addr, OFF_SHIELD);
                     /* 机器人、无人机、马文、载具 */
-                    ImU32 color = IM_COL32(255, 0, 0, 255);
-                    if (handlePlayer(cacheObject, localPlayer, baseAddr, &color)) {
-                        drawPlayer(color, cacheObject, line);
-                        playerCount++;
-                    }
+                    bots[botCount++] = cacheObject;
+                    OObject &bot = bots[botCount++];
+                    mem->addScatterReadV(handle, &bot.teamId, sizeof(int), bot.addr, OFF_TEAM);
+                    mem->addScatterReadV(handle, &bot.playerPosition, sizeof(Vector3D), bot.addr, OFF_ORIGIN);
+                    mem->addScatterReadV(handle, &bot.viewAngles, sizeof(Vector2D), bot.addr, OFF_VIEW_ANGLES1);
+                    mem->addScatterReadV(handle, &bot.lastVisTime, sizeof(float), bot.addr, OFF_VISIBLE_TIME);
+                    mem->addScatterReadV(handle, &bot.lifeState, sizeof(int), bot.addr, OFF_LIFE_STATE);
+                    mem->addScatterReadV(handle, &bot.nameIndex, sizeof(int), bot.addr, OFF_INDEX_IN_NAMELIST);
+                    mem->addScatterReadV(handle, &bot.health, sizeof(int), bot.addr, OFF_HEALTH);
+                    mem->addScatterReadV(handle, &bot.maxHealth, sizeof(int), bot.addr, OFF_MAX_HEALTH);
+                    mem->addScatterReadV(handle, bot.shieldHealth, sizeof(int) * 2, bot.addr, OFF_SHIELD);
                 } else {
                     /* 物品 */
                     if (!worldToScreen(cacheObject.playerPosition, matrix, render.screenWidth, render.screenHeight,
@@ -735,6 +734,17 @@ void surface(Addr baseAddr) {
                     float dis = computeDistance(localPlayerPosition, cacheObject.playerPosition) * distanceScal;
                     cacheObject.distance = dis;
                     drawObject(IM_COL32(255, 255, 255, 255), cacheObject);
+                }
+            }
+            if (botCount > 0) {
+                mem->executeReadScatter(handle);
+                for (int j = 0; j < cacheObjectCount; j++) {
+                    OObject &bot = bots[j];
+                    ImU32 color = IM_COL32(255, 0, 0, 255);
+                    if (handlePlayer(bot, localPlayer, baseAddr, &color)) {
+                        drawPlayer(color, bot, line);
+                        playerCount++;
+                    }
                 }
             }
             webMutex.lock();
@@ -750,6 +760,7 @@ void surface(Addr baseAddr) {
             }
             playerIndex = 0;
             playerCount = 0;
+            botCount = 0;
         }
         render.drawEnd();
     }
@@ -757,6 +768,7 @@ void surface(Addr baseAddr) {
     delete[] players;
     delete[] playerAddrs;
     delete[] cacheObjects;
+    delete[] bots;
 }
 /*** http 服务 ***/
 using namespace hv;
