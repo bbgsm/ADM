@@ -14,7 +14,7 @@
         .map {
             width: 500px; /* 地图的宽度 */
             height: 500px; /* 地图的高度 */
-            background-image: url("mp_rr_divided_moon_mu1.jpg"); /* 地图的背景色为黑色 */
+            background-image: url("mm.jpg"); /* 地图的背景色为黑色 */
             border: 1px solid #ccc; /* 地图的边框 */
             position: relative; /* 使得红点可以相对定位 */
             background-size: cover;
@@ -80,19 +80,19 @@
 
 <div>
     <label for="x">x</label>
-    <input type="range" min="1" max="500" value="0" id="x">
+    <input type="range" min="-500" max="500" value="0" id="x">
     <span id="xValueView">0</span>
 </div>
 
 <div>
     <label for="y">y</label>
-    <input type="range" min="1" max="500" value="0" id="y">
+    <input type="range" min="-500" max="500" value="0" id="y">
     <span id="yValueView">0</span>
 </div>
 
 <div>
     <label for="range">显示范围</label>
-    <input type="range" min="0" max="360" value="500" id="range">
+    <input type="range" min="0" max="360" value="2000" id="range">
     <span id="rangeValueView">500</span>
 </div>
 
@@ -407,8 +407,8 @@
             // let mapPosition = rotate(
             //     localPlayer, player
             // );
-            let xx = player.x / scale + x /*+ centerX;*/
-            let yy = player.y / scale + y/* + centerY - 10;*/
+            let xx = player.x / scale + centerX;
+            let yy = -player.y / scale + centerY - 10;
             if (xx < 0) {
                 xx = 0;
             } else if (xx > 500) {
@@ -430,8 +430,8 @@
                     }
                 }
                 const text = " (高度:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
-                drawTriangle(xx, yy, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
-                drawTextWithBackground(xx, yy, textBackgroundColor, 'white', text);
+                drawTriangle(xx, yy, 8, player.viewAnglesH, playerColor);
+                // drawTextWithBackground(xx, yy, textBackgroundColor, 'white', text);
             } else {
                 const playerName = player.name + " (" + dis + "M)";
                 if (isPointingTo(localPlayer, player)) {
@@ -481,43 +481,43 @@
     };
 
     /**** test code ****/
-/*    function generateRandomPlayer() {
-        return {
-            name: 'Player' + Math.floor(Math.random() * 1000),
-            x: Math.random() * 500,
-            y: Math.random() * 500,
-            z: 0,
-            isPlayer: (parseInt(Math.random() * 100) % 2 === 0),
-            health: Math.floor(Math.random() * 101),
-            viewAnglesH: Math.random() * 360,
-            viewAnglesV: Math.random() * 180 - 90,
-            distance: Math.random() * 100,
-            teamId: Math.floor(Math.random() * 10) + 1
-        };
-    }
-
-    const players = [];
-    setInterval(() => {
-        nameValue = 'Player1';
-        players.length = 0;
-        for (let i = 0; i < 100; i++) {
-            players.push(generateRandomPlayer());
+    /*    function generateRandomPlayer() {
+            return {
+                name: 'Player' + Math.floor(Math.random() * 1000),
+                x: Math.random() * 500,
+                y: Math.random() * 500,
+                z: 0,
+                isPlayer: (parseInt(Math.random() * 100) % 2 === 0),
+                health: Math.floor(Math.random() * 101),
+                viewAnglesH: Math.random() * 360,
+                viewAnglesV: Math.random() * 180 - 90,
+                distance: Math.random() * 100,
+                teamId: Math.floor(Math.random() * 10) + 1
+            };
         }
-        players.push({
-            name: 'Player1',
-            x: 100,
-            y: 100,
-            z: 0,
-            isPlayer: true,
-            health: 100,
-            viewAnglesH: 0,
-            viewAnglesV: 0,
-            distance: 1,
-            teamId: 1
-        });
-        players.sort((a, b) => a.isPlayer - b.isPlayer);
-        drawPlayers(players);
-    }, 100);*/
+
+        const players = [];
+        setInterval(() => {
+            nameValue = 'Player1';
+            players.length = 0;
+            for (let i = 0; i < 100; i++) {
+                players.push(generateRandomPlayer());
+            }
+            players.push({
+                name: 'Player1',
+                x: 100,
+                y: 100,
+                z: 0,
+                isPlayer: true,
+                health: 100,
+                viewAnglesH: 0,
+                viewAnglesV: 0,
+                distance: 1,
+                teamId: 1
+            });
+            players.sort((a, b) => a.isPlayer - b.isPlayer);
+            drawPlayers(players);
+        }, 100);*/
     /**** test code ****/
 </script>
 
