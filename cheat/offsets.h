@@ -3,7 +3,7 @@
 
 /*** r5apex.exe 偏移  ***/
 #define OFF_GAME_STATE 0xAFBD808     // 对局是否进行 int 0x1EC1FC0 0xAFBC60C 0xAFBC610 0xAFBC608
-#define OFF_ENTITY_LIST 0x1F62318    // 对象数组(玩家，物品) 大小10000 * 32
+#define OFF_ENTITY_LIST 0x1F62298    // 对象数组(玩家，物品) 大小10000 * 32
 #define OFF_LOCAL_PLAYER 0x24354F8   // 操作玩家指针
 #define OFF_NAME_LIST 0xD427348      // 名称字典指针
 #define OFF_MATRIX1 0x242A690        // 4x4矩阵 float[16]
