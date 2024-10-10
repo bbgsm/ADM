@@ -16,8 +16,8 @@
 #include "WebSocketServer.h"
 #include "hmutex.h"
 #include "ini.h"
-#include "offsets.h"
 #include "objects.h"
+#include "offsets.h"
 
 MemoryToolsBase *mem;
 Render render;
@@ -127,6 +127,7 @@ Vector3D lastHeadPosition;
 Vector3D positionPrediction;
 Vector3D headPositionPrediction;
 
+int aimRange = 200;
 // 最后预测时间
 mlong lastPredictionTime = 0;
 // 自瞄预测间隔时间(ms)
@@ -401,7 +402,7 @@ bool handlePlayer(OObject &player, const OObject &localPlayer, Addr baseAddr, Im
 
     // 如果盒子初始化完成和开镜
     if (isAim) {
-        if (d < 200 && (player.lastVisTime > lastVisTimeMap[player.addr])) {
+        if (d < aimRange && (player.lastVisTime > lastVisTimeMap[player.addr])) {
             // 玩家在准心范围200像素内的才进行自瞄操作
             if (d < aimDis || aimAddr == player.addr) {
                 /* 自瞄选中 */
@@ -561,62 +562,64 @@ void surface(Addr baseAddr) {
 
         std::string PerformanceString = "Render FPS: " + std::to_string(static_cast<int>(ImGui::GetIO().Framerate));
         fpsDraw->AddText(ImVec2(10, 50), IM_COL32(255, 255, 255, 255), PerformanceString.c_str());
+        fpsDraw->AddCircle({screenCenterX, screenCenterY}, aimRange, IM_COL32(255, 255, 255, 255), 200, 2);
 
         ImGui::SetNextWindowSize(ImVec2(400, 430), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(ImVec2(render.screenWidth - 410, 10), ImGuiCond_FirstUseEver);
         ImGui::Begin("ADM");
 
         ImGui::Checkbox("游戏状态", &gameState);
-        if(ImGui::SliderFloat("框X偏移", &boxX, 0.0f, 100.0f, "%.2f")) {
+        if (ImGui::SliderFloat("框X偏移", &boxX, 0.0f, 100.0f, "%.2f")) {
             ini["settings"]["box_x"] = std::to_string(boxX);
             iniFile->write(ini);
         }
-        if(ImGui::SliderFloat("框Y偏移", &boxY, 0.0f, 100.0f, "%.2f")) {
+        if (ImGui::SliderFloat("框Y偏移", &boxY, 0.0f, 100.0f, "%.2f")) {
             ini["settings"]["box_y"] = std::to_string(boxX);
             iniFile->write(ini);
         }
-        if(ImGui::SliderFloat("框线宽", &line, 0.0f, 10.0f, "%.1f")) {
+        if (ImGui::SliderFloat("框线宽", &line, 0.0f, 10.0f, "%.1f")) {
             ini["settings"]["line"] = std::to_string(line);
             iniFile->write(ini);
         }
-        if(ImGui::SliderFloat("显示范围(米)", &range, 0.0f, 10000.0f, "%.1f")) {
+        if (ImGui::SliderFloat("显示范围(米)", &range, 0.0f, 10000.0f, "%.1f")) {
             ini["settings"]["range"] = std::to_string(range);
             iniFile->write(ini);
         }
         ImGui::SliderFloat("水平视角", &vx, -180, 180, "%.6f");
         ImGui::SliderFloat("垂直视角", &vy, -180, 180, "%.6f");
-        if(ImGui::SliderInt("最大显示物品数", &maxDisplayObjectCount, 0, 1000)) {
+        if (ImGui::SliderInt("最大显示物品数", &maxDisplayObjectCount, 0, 1000)) {
             ini["settings"]["max_display_object_count"] = std::to_string(maxDisplayObjectCount);
             iniFile->write(ini);
         }
-        if(ImGui::SliderInt("最大读取物品数", &maxObjectCount, 0, 10000)) {
+        if (ImGui::SliderInt("最大读取物品数", &maxObjectCount, 0, 10000)) {
             ini["settings"]["max_object_count"] = std::to_string(maxObjectCount);
             iniFile->write(ini);
         }
-        if(ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, maxPlayer, 10000)) {
+        if (ImGui::SliderInt("物品读取开始位置", &beginObjectIndex, maxPlayer, 10000)) {
             ini["settings"]["begin_object_index"] = std::to_string(beginObjectIndex);
             iniFile->write(ini);
         }
         ImGui::Text("辅助瞄准配置:");
-        if(ImGui::Checkbox("辅助瞄准", &aimBot)) {
+        if (ImGui::Checkbox("辅助瞄准", &aimBot)) {
             ini["settings"]["aim_bot"] = std::to_string(aimBot);
             iniFile->write(ini);
         }
         if (aimBot) {
-            if(ImGui::SliderFloat("瞄准速度", &aimBotSpeed, 1.0f, 20.0f, "%.0f")) {
+            ImGui::SliderInt("自瞄范围", &aimRange, 10, 1000);
+            if (ImGui::SliderFloat("瞄准速度", &aimBotSpeed, 1.0f, 20.0f, "%.0f")) {
                 ini["settings"]["aim_bot_speed"] = std::to_string(aimBotSpeed);
                 iniFile->write(ini);
             }
-            if(ImGui::Checkbox("随机瞄准(上半身范围)", &aimRandom)) {
+            if (ImGui::Checkbox("随机瞄准(上半身范围)", &aimRandom)) {
                 ini["settings"]["aim_random"] = std::to_string(aimRandom);
                 iniFile->write(ini);
             }
-            if(ImGui::Checkbox("开启自瞄预测", &aimPrediction)) {
+            if (ImGui::Checkbox("开启自瞄预测", &aimPrediction)) {
                 ini["settings"]["aim_prediction"] = std::to_string(aimPrediction);
                 iniFile->write(ini);
             }
             if (aimPrediction) {
-                if(ImGui::SliderInt("预测间隔时间(ms)", &predictionIntervalTime, 0, 1000)) {
+                if (ImGui::SliderInt("预测间隔时间(ms)", &predictionIntervalTime, 0, 1000)) {
                     ini["settings"]["prediction_interval_time"] = std::to_string(predictionIntervalTime);
                     iniFile->write(ini);
                 }
