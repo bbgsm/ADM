@@ -20,28 +20,28 @@
             background-size: cover;
         }
 
-        /* 设置中心点 */
-        .center-point {
-            width: 8px; /* 中心点的宽度 */
-            height: 8px; /* 中心点的高度 */
-            background-color: yellow; /* 中心点的颜色 */
-            border-radius: 50%; /* 中心点为圆形 */
-            position: absolute;
-            top: 50%; /* 垂直居中 */
-            left: 50%; /* 水平居中 */
-            transform: translate(-50%, -50%); /* 确保点的中心在地图中心 */
-        }
+        /*!* 设置中心点 *!*/
+        /*.center-point {*/
+        /*    width: 8px; !* 中心点的宽度 *!*/
+        /*    height: 8px; !* 中心点的高度 *!*/
+        /*    background-color: yellow; !* 中心点的颜色 *!*/
+        /*    border-radius: 50%; !* 中心点为圆形 *!*/
+        /*    position: absolute;*/
+        /*    top: 50%; !* 垂直居中 *!*/
+        /*    left: 50%; !* 水平居中 *!*/
+        /*    transform: translate(-50%, -50%); !* 确保点的中心在地图中心 *!*/
+        /*}*/
 
-        /* 设置中心到顶部的线 */
-        .center-line {
-            width: 2px; /* 线的宽度 */
-            height: 50%; /* 线的高度，为地图高度的一半 */
-            background-color: white; /* 线的颜色 */
-            position: absolute;
-            top: 0; /* 从顶部开始 */
-            left: 50%; /* 水平居中 */
-            transform: translateX(-50%); /* 使线条水平居中 */
-        }
+        /*!* 设置中心到顶部的线 *!*/
+        /*.center-line {*/
+        /*    width: 2px; !* 线的宽度 *!*/
+        /*    height: 50%; !* 线的高度，为地图高度的一半 *!*/
+        /*    background-color: white; !* 线的颜色 *!*/
+        /*    position: absolute;*/
+        /*    top: 0; !* 从顶部开始 *!*/
+        /*    left: 50%; !* 水平居中 *!*/
+        /*    transform: translateX(-50%); !* 使线条水平居中 *!*/
+        /*}*/
 
         .clearCache, #scale, #range, #nameInput, #displayTeamCheckBox, #displayObjectCheckBox {
             margin-top: 10px;
@@ -384,9 +384,9 @@
         let newTeamList = [];
         newTeamList.push(localPlayer);
         players.forEach(player => {
-            if (player === localPlayer) {
-                return;
-            }
+            // if (player === localPlayer) {
+            //     return;
+            // }
             if (localPlayer.teamId === player.teamId) {
                 newTeamList.push(player);
                 if (!displayTeam) {
@@ -397,40 +397,33 @@
             if (!displayObject && !player.isPlayer) {
                 return;
             }
-            let dis = distance(localPlayer, player);
-            if (dis > range) {
-                return;
-            }
+            // let dis = distance(localPlayer, player);
+            // if (dis > range) {
+            //     return;
+            // }
             if (player.isPlayer && player.health <= 0) {
                 return;
             }
             // let mapPosition = rotate(
             //     localPlayer, player
             // );
-            let xx = player.x / scale + centerX;
-            let yy = -player.y / scale + centerY - 10;
-            if (xx < 0) {
-                xx = 0;
-            } else if (xx > 500) {
-                xx = 500
-            }
-            if (yy < 0) {
-                yy = 0;
-            } else if (yy > 500) {
-                yy = 500
-            }
+            let xx = player.x / 160 + centerX;
+            let yy = -player.y / 160 + centerY - 10;
+            // if (xx < 0) {
+            //     xx = 0;
+            // } else if (xx > 500) {
+            //     xx = 500
+            // }
+            // if (yy < 0) {
+            //     yy = 0;
+            // } else if (yy > 500) {
+            //     yy = 500
+            // }
             if (player.isPlayer) {
-                if (isPointingTo(player, localPlayer)) {
-                    playerColor = warningColor;
-                } else {
-                    if (isPointingTo(localPlayer, player)) {
-                        playerColor = selectPlayerColor;
-                    } else {
-                        playerColor = displayTeam && localPlayer.teamId === player.teamId ? teamColor : colors[player.teamId % 10];
-                    }
-                }
+                playerColor = displayTeam && localPlayer.teamId === player.teamId ? teamColor : colors[player.teamId % 10];
+
                 const text = " (高度:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
-                drawTriangle(xx, yy, 8, player.viewAnglesH, playerColor);
+                drawTriangle(xx, yy, 8, (-player.viewAnglesH) + 90 , playerColor);
                 // drawTextWithBackground(xx, yy, textBackgroundColor, 'white', text);
             } else {
                 const playerName = player.name + " (" + dis + "M)";
@@ -463,8 +456,8 @@
         }
     }
 
-    // const ws = new WebSocket('ws://' + window.location.host);
-    const ws = new WebSocket('ws://127.0.0.1:6888');
+    const ws = new WebSocket('ws://' + window.location.host);
+    // const ws = new WebSocket('ws://127.0.0.1:6888');
     ws.onmessage = function (event) {
         const players = JSON.parse(event.data);
         if (!players || players.length === 0) return;
