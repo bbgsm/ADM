@@ -104,10 +104,10 @@
     var VERTICAL_OFFSET = 20; // 垂直方向的角度偏移量
 
     var nameValue = '';
-    var scale = 50.0;
-    var range = 500;
-    var displayTeam = true;
-    var displayObject = true;
+    var scale = 50.0;   // 缩放
+    var range = 500;    // 显示范围
+    var displayTeam = true; // 是否显示队友
+    var displayObject = true; // 是否显示物资
     const canvas = document.getElementById('mapCanvas');
     const ctx = canvas.getContext('2d');
     const teamColor = "#FFFFFF";                                  // 队友颜色
@@ -212,7 +212,7 @@
 
     };
 
-    // display Team Player
+    // 显示队友选项
     function setTeamOption(players) {
         clearOption();
         players.forEach((player, index) => {
@@ -247,20 +247,24 @@
 
     }
 
+    // 清除队友选项
     function clearOption() {
         const radioContainer = document.getElementById('teamPlayerRadioContainer');
         radioContainer.innerHTML = '';
     }
 
+    // 计算3d坐标距离
     function distance(a, b) {
         return Math.floor(Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2) + Math.pow(b.z - a.z, 2)) * 0.025);
     }
 
+    // 清除缓存
     function clearCache() {
         localStorage.clear();
         location.reload();
     }
 
+    // 校正角度
     function normalizeAngle(angle) {
         angle = angle % 360;
         if (angle > 180) {
@@ -271,6 +275,7 @@
         return angle;
     }
 
+    // 画三角形
     function drawTriangle(x, y, size, viewAnglesH, fillStyle) {
         const normalizedAngle = normalizeAngle(viewAnglesH + HORIZONTAL_OFFSET);
         ctx.save();
@@ -290,19 +295,21 @@
         ctx.restore();
     }
 
+    // 画文字
     function drawTextWithBackground(x, y, backgroundColor, textColor, text) {
         const textWidth = ctx.measureText(text).width;
         const textHeight = 14;
         // ctx.globalAlpha = 0.8;
 
         ctx.fillStyle = backgroundColor;
-        ctx.fillRect(x - textWidth / 2, y + 15, textWidth , textHeight);
+        ctx.fillRect(x - textWidth / 2, y + 15, textWidth, textHeight);
         ctx.fillStyle = textColor;
         ctx.font = '16px Arial';
         ctx.fillText(text, x - textWidth / 2, y + 15 + textHeight);
         ctx.restore();
     }
 
+    // 坐标相对旋转计算
     function rotate(a, b) {
         const angle = a.viewAnglesH / 360.0 * Math.PI * 2.0
         const mapPosition = {};
@@ -313,6 +320,7 @@
         return mapPosition;
     }
 
+    // 玩家指向判断
     function isPointingTo(a, b, tolerance = 10) {
         // 计算从 a 到 b 的向量
         const dx = b.x - a.x;
@@ -331,6 +339,7 @@
         return isHorizontalAligned && isVerticalAligned;
     }
 
+    // 绘制玩家
     function drawPlayers(players) {
 
         ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
@@ -338,9 +347,11 @@
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
 
+        // 当前玩家
         let localPlayer = players.find(player => player.isPlayer && player.name === nameValue);
         if (!localPlayer) return;
 
+        // 团队玩家
         let newTeamList = [];
         newTeamList.push(localPlayer);
         players.forEach(player => {
@@ -353,17 +364,20 @@
                     return;
                 }
             }
-
+            // 是否显示物资
             if (!displayObject && !player.isPlayer) {
                 return;
             }
+            // 距离限制
             let dis = distance(localPlayer, player);
             if (dis > range) {
                 return;
             }
+            // 不显示无血量玩家
             if (player.isPlayer && player.health <= 0) {
                 return;
             }
+            // 坐标相对当前旋转计算
             let mapPosition = rotate(
                 localPlayer, player
             );
@@ -380,6 +394,7 @@
                 y = 500
             }
             if (player.isPlayer) {
+                /* 玩家 */
                 if (isPointingTo(player, localPlayer)) {
                     playerColor = warningColor;
                 } else {
@@ -393,6 +408,7 @@
                 drawTriangle(x, y, 8, localPlayer.viewAnglesH - player.viewAnglesH, playerColor);
                 drawTextWithBackground(x, y, textBackgroundColor, 'white', text);
             } else {
+                /* 物资 */
                 const playerName = player.name + " (" + dis + "M)";
                 if (isPointingTo(localPlayer, player)) {
                     drawTextWithBackground(x, y, selectObjectBackgroundColor, 'white', playerName);
@@ -407,6 +423,7 @@
                 }
             }
         });
+        // 刷新队友选项
         for (let i = 0; i < newTeamList.length; i++) {
             let find = false;
             for (let j = 0; j < teamList.length; j++) {
@@ -440,7 +457,7 @@
         console.error('WebSocket error:', error);
     };
 
-    /**** test code ****/
+    /**** 测试代码 ****/
     /*function generateRandomPlayer() {
         return {
             name: 'Player' + Math.floor(Math.random() * 1000),
