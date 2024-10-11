@@ -540,6 +540,7 @@ void surface(Addr baseAddr) {
     /******* kmBox初始化 *******/
 
     Handle handle = mem->createScatter();
+    char mapStr[50];
     while (true) {
         entityMutex.lock();
         memcpy(playerAddrs, entityAddrs, sizeof(EntityAddr) * maxPlayer);
@@ -555,9 +556,10 @@ void surface(Addr baseAddr) {
         if (!render.drawBegin()) {
             continue;
         }
-
+        // mem->readV(mapStr,50, baseAddr,OFF_LEVEL_NAME);
         bool gameState = mem->readI(baseAddr, OFF_GAME_STATE) != 0;
-
+        // std::string mapName = mem->readStr(baseAddr,100, OFF_LEVEL_NAME);
+        // logInfo("Map Name: %s\n", mapStr);
         ImDrawList *fpsDraw = ImGui::GetForegroundDrawList();
 
         std::string PerformanceString = "Render FPS: " + std::to_string(static_cast<int>(ImGui::GetIO().Framerate));
@@ -663,7 +665,8 @@ void surface(Addr baseAddr) {
             mem->addScatterReadV(handle, &localPlayer.nameIndex, sizeof(int), localPlayerAddr, OFF_INDEX_IN_NAMELIST);
             mem->addScatterReadV(handle, &localPlayer.itemId, sizeof(int), localPlayerAddr, OFF_ITEM_ID);
             mem->addScatterReadV(handle, &localPlayer.viewAngles, sizeof(Vector2D), localPlayerAddr, OFF_VIEW_ANGLES5);
-            mem->addScatterReadV(handle, &isAim, sizeof(bool), localPlayerAddr, OFF_AIM);
+            // mem->addScatterReadV(handle, &isAim, sizeof(bool), localPlayerAddr, OFF_AIM);
+            mem->addScatterReadV(handle, &isAim, sizeof(bool), baseAddr, OFF_FIRE1);
             mem->executeReadScatter(handle);
             isAim = isAim && kmBox;
             // 读取玩家头部坐标
