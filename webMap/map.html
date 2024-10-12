@@ -168,7 +168,7 @@
         [1, 'rgba(255, 0, 0, 1)'], // 克雷贝尔
         [227, 'rgba(255, 0, 0, 1)'], // 手刀
     ]);
-
+    let gameMap = "";
     new Vue({
         el: '#app',
         data: {
@@ -536,7 +536,10 @@
     const ws = new WebSocket('ws://' + window.location.host);
     // const ws = new WebSocket('ws://127.0.0.1:6888');
     ws.onmessage = function (event) {
-        const players = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
+        if (!data) return;
+        gameMap = data.gameMap;
+        let players = data.dataArray;
         if (!players || players.length === 0) return;
         players.sort((a, b) => a.isPlayer - b.isPlayer);
         drawPlayers(players);
