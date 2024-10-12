@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMap</title>
+    <style>
+        canvas {
+            background: #ccc;
+            display: block;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const player = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        size: 20
+    };
+
+    const map = {
+        x: 0,
+        y: 0,
+        width: 1600,
+        height: 1200,
+        angle: 0,
+        image: new Image()
+    };
+
+    // 加载地图背景图片
+    map.image.src = 'img/mp_rr_tropic_island_mu2.jpg';
+
+    map.image.onload = function() {
+        update();
+    };
+
+    function drawMap() {
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(map.angle);
+        ctx.drawImage(map.image, map.x - player.x, map.y - player.y, map.width, map.height);
+        ctx.restore();
+    }
+
+    function drawPlayer() {
+        ctx.fillStyle = 'red';
+        ctx.fillRect(player.x - player.size / 2, player.y - player.size / 2, player.size, player.size);
+    }
+
+    function update() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawMap();
+        drawPlayer();
+    }
+
+    function handleInput(event) {
+        const speed = 5;
+        switch (event.key) {
+            case 'ArrowUp':
+                map.y += speed;
+                break;
+            case 'ArrowDown':
+                map.y -= speed;
+                break;
+            case 'ArrowLeft':
+                map.x += speed;
+                break;
+            case 'ArrowRight':
+                map.x -= speed;
+                break;
+            case 'a':
+                map.angle -= 0.1;
+                break;
+            case 'd':
+                map.angle += 0.1;
+                break;
+        }
+        update();
+    }
+
+    window.addEventListener('keydown', handleInput);
+</script>
+</body>
+</html>
