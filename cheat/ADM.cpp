@@ -152,6 +152,9 @@ mINI::INIStructure ini;
 mINI::INIFile *iniFile;
 
 
+char gameMap[50] = {0};
+
+
 // 重置自瞄参数
 void resetAimBot() {
     aimDis = 999999999;
@@ -527,6 +530,7 @@ void surface(Addr baseAddr) {
     int playerCount = 0;
     int playerIndex = 0;
 
+    bool readMap = true;
     /******* kmBox初始化 *******/
     if (strlen(kmBoxIP) > 0 && strlen(kmBoxMac) > 0 && strlen(kmBoxPort) > 0) {
         if (kmNet_init(kmBoxIP, kmBoxPort, kmBoxMac) != 0) {
@@ -540,7 +544,7 @@ void surface(Addr baseAddr) {
     /******* kmBox初始化 *******/
 
     Handle handle = mem->createScatter();
-    char mapStr[50];
+
     while (true) {
         entityMutex.lock();
         memcpy(playerAddrs, entityAddrs, sizeof(EntityAddr) * maxPlayer);
@@ -556,10 +560,8 @@ void surface(Addr baseAddr) {
         if (!render.drawBegin()) {
             continue;
         }
-        // mem->readV(mapStr,50, baseAddr,OFF_LEVEL_NAME);
+
         bool gameState = mem->readI(baseAddr, OFF_GAME_STATE) != 0;
-        // std::string mapName = mem->readStr(baseAddr,100, OFF_LEVEL_NAME);
-        // logInfo("Map Name: %s\n", mapStr);
         ImDrawList *fpsDraw = ImGui::GetForegroundDrawList();
 
         std::string PerformanceString = "Render FPS: " + std::to_string(static_cast<int>(ImGui::GetIO().Framerate));
@@ -571,6 +573,8 @@ void surface(Addr baseAddr) {
         ImGui::Begin("ADM");
 
         ImGui::Checkbox("游戏状态", &gameState);
+        ImGui::Text("Game Map: %s", gameMap);
+
         if (ImGui::SliderFloat("框X偏移", &boxX, 0.0f, 100.0f, "%.2f")) {
             ini["settings"]["box_x"] = std::to_string(boxX);
             iniFile->write(ini);
@@ -655,6 +659,12 @@ void surface(Addr baseAddr) {
         ImGui::End();
 
         if (gameState) {
+
+            if (readMap) {
+                mem->readV(gameMap,50, baseAddr,OFF_LEVEL_NAME);
+                readMap = false;
+            }
+
             Addr localPlayerAddr = mem->readA(baseAddr, OFF_LOCAL_PLAYER);
             logDebug("localPlayerAddr: %llX\n", localPlayerAddr);
             OObject localPlayer;
@@ -767,6 +777,8 @@ void surface(Addr baseAddr) {
             playerIndex = 0;
             playerCount = 0;
             botCount = 0;
+        } else {
+            readMap = true;
         }
         render.drawEnd();
     }
@@ -804,6 +816,7 @@ public:
 
     static void run(WebSocketChannel *channel, OObject *mapObject, int mapObjectCount) {
         Json data;
+        Json jsonArray;
         for (int i = 0; i < mapObjectCount; i++) {
             OObject &p = mapObject[i];
             Json objectJson;
@@ -833,8 +846,10 @@ public:
                 objectJson["itemId"] = p.itemId;
             }
             //            objectJson["addr"] = p.addr;
-            data += {objectJson};
+            jsonArray += {objectJson};
         }
+        data["dataArray"] = jsonArray;
+        data["gameMap"] = gameMap;
         try {
             if (!data.empty()) {
                 std::ostringstream stream;
@@ -885,7 +900,7 @@ void websocketServer() {
 
     wws.onmessage = [](const WebSocketChannelPtr &channel, const std::string &msg) {
         auto ctx = channel->getContextPtr<WebMapContext>();
-        ctx->handleMessage(msg, channel->opcode);
+        WebMapContext::handleMessage(msg, channel->opcode);
     };
 
     wws.onclose = [](const WebSocketChannelPtr &channel) {
@@ -912,16 +927,16 @@ void aimBotThread() {
     while (isRun) {
         if (kmBox && aimAddr != 0 && (aimBotX != 0 || aimBotY != 0)) {
             // 曲线公式
-            float xx = aimBotSpeed / 10 * sqrt(abs(aimBotX));
-            float yy = aimBotSpeed / 10 * sqrt(abs(aimBotY));
+            auto xx = static_cast<float>(aimBotSpeed / 10.0F * sqrt(abs(aimBotX)));
+            auto yy = static_cast<float>(aimBotSpeed / 10.0F * sqrt(abs(aimBotY)));
             if (xx > 100) {
                 xx = 100;
             }
             if (yy > 100) {
                 yy = 100;
             }
-            xx = xx * (aimBotX > 0 ? 1 : -1);
-            yy = yy * (aimBotY > 0 ? 1 : -1);
+            xx = xx * static_cast<float>(aimBotX > 0 ? 1 : -1);
+            yy = yy * static_cast<float>(aimBotY > 0 ? 1 : -1);
             // logInfo("aAddr: %llX x:%f y: %f\n", aimAddr, xx, yy);
             // 消抖
             if (abs(xx) < 2) {
@@ -972,19 +987,19 @@ int main() {
     // 可以直接在游戏电脑上读取内存（不怕封号就逝逝）
     // mem = new DirectMemoryTools();
     // Dma读取内存
-    mem = new DmaMemoryTools();
-    if (!mem->init("r5apex.exe")) {
-        logInfo("Failed to initialized DMA\n");
-    } else {
-        logInfo("Successfully initialized DMA\n");
-    }
-    // 读取Dump的内存
-    // mem = new DumpMemoryTools();
-    // if (!mem->init("C:\\dumpMem\\apex11\\dict.txt")) {
-    //     logInfo("Failed to initialized Dump\n");
+    // mem = new DmaMemoryTools();
+    // if (!mem->init("r5apex.exe")) {
+    //     logInfo("Failed to initialized DMA\n");
     // } else {
-    //     logInfo("Dump initialized\n");
+    //     logInfo("Successfully initialized DMA\n");
     // }
+    // 读取Dump的内存
+    mem = new DumpMemoryTools();
+    if (!mem->init("C:\\dumpMem\\apex11\\dict.txt")) {
+        logInfo("Failed to initialized Dump\n");
+    } else {
+        logInfo("Dump initialized\n");
+    }
     plugin();
     if(kmBox) {
         kmNet_close();

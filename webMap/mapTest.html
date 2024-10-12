@@ -343,6 +343,16 @@
         ctx.restore();
     }
 
+    function setBackgroundImage(elementId, imageUrl, size = 'cover') {
+        var element = document.getElementById(elementId);
+        if (element) {
+            element.style.backgroundImage = `url('${imageUrl}')`;
+            element.style.backgroundSize = size;
+        } else {
+            console.error('Element not found!');
+        }
+    }
+
     function rotate(a, b) {
         const angle = a.viewAnglesH / 360.0 * Math.PI * 2.0
         const mapPosition = {};
@@ -423,7 +433,7 @@
                 playerColor = displayTeam && localPlayer.teamId === player.teamId ? teamColor : colors[player.teamId % 10];
 
                 const text = " (高度:" + parseInt(((player.z - localPlayer.z) * 0.025)) + "M)";
-                drawTriangle(xx, yy, 8, (-player.viewAnglesH) + 90 , playerColor);
+                drawTriangle(xx, yy, 8, (-player.viewAnglesH) + 90, playerColor);
                 // drawTextWithBackground(xx, yy, textBackgroundColor, 'white', text);
             } else {
                 const playerName = player.name + " (" + dis + "M)";
@@ -459,7 +469,13 @@
     const ws = new WebSocket('ws://' + window.location.host);
     // const ws = new WebSocket('ws://127.0.0.1:6888');
     ws.onmessage = function (event) {
-        const players = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
+        if (!data) return;
+        if (data.gameMap && data.gameMap !== gameMap) {
+            gameMap = data.gameMap;
+            setBackgroundImage("map", "img/" + gameMap + ".jpg");
+        }
+        let players = data.dataArray;
         if (!players || players.length === 0) return;
         players.sort((a, b) => a.isPlayer - b.isPlayer);
         drawPlayers(players);
