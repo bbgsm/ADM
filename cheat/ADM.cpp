@@ -987,19 +987,19 @@ int main() {
     // 可以直接在游戏电脑上读取内存（不怕封号就逝逝）
     // mem = new DirectMemoryTools();
     // Dma读取内存
-    // mem = new DmaMemoryTools();
-    // if (!mem->init("r5apex.exe")) {
-    //     logInfo("Failed to initialized DMA\n");
-    // } else {
-    //     logInfo("Successfully initialized DMA\n");
-    // }
-    // 读取Dump的内存
-    mem = new DumpMemoryTools();
-    if (!mem->init("C:\\dumpMem\\apex11\\dict.txt")) {
-        logInfo("Failed to initialized Dump\n");
+    mem = new DmaMemoryTools();
+    if (!mem->init("r5apex.exe")) {
+        logInfo("Failed to initialized DMA\n");
     } else {
-        logInfo("Dump initialized\n");
+        logInfo("Successfully initialized DMA\n");
     }
+    // 读取Dump的内存
+    // mem = new DumpMemoryTools();
+    // if (!mem->init("C:\\dumpMem\\apex11\\dict.txt")) {
+    //     logInfo("Failed to initialized Dump\n");
+    // } else {
+    //     logInfo("Dump initialized\n");
+    // }
     plugin();
     if(kmBox) {
         kmNet_close();
