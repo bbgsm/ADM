@@ -32,10 +32,10 @@ Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运
 
 # 测试环境
 #### Windows
-- 主机: Windows 11 + CaptainDMA 75T
+- 主机: Windows 11 + CaptainDMA 75T + KmBoxNet
 - 副机: Windows 11 
 #### Linux
-- 主机: Windows 11 + CaptainDMA 75T
+- 主机: Windows 11 + CaptainDMA 75T + KmBoxNet
 - 副机: Ubuntu arm64 香橙派5 
 - Linux X64 待开发....
 
