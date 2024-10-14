@@ -1,6 +1,10 @@
 # ADM
 Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运行
 
+# 克隆
+* 因为有子模块需要用下面命令克隆
+* `git clone --recursive https://github.com/bbgsm/ADM.git`
+* 
 # Telegram
 * [✈️飞机群](https://t.me/+R3hf2s4ZVF81YmZl)
 
@@ -17,9 +21,6 @@ Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运
 # 网页地图功能地址
 * 运行ADM后访问下面地址
 * http://127.0.0.1:6888/map.html
-# 克隆
-* 因为有子模块需要用下面命令克隆
-* `git clone --recursive https://github.com/bbgsm/ADM.git`
 
 # 编译
 - Windows
