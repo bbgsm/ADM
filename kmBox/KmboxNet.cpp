@@ -122,6 +122,17 @@ int kmNet_init(const char *ip, const char *port, const char *mac) {
     // 第一次连接可能时间比较久
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
+#ifdef _WIN32 // Windows
+    // 设置超时时间为5秒
+    DWORD timeout = 5000;
+    if (setsockopt(sockClientfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
+        std::cerr << "Failed to set socket receive timeout" << std::endl;
+        closesocket(sockClientfd);
+        WSACleanup();
+        return 1;
+    }
+#include <WS2tcpip.h>
+#else // Linux
     // 设置接收超时
     timeval timeout{};
     timeout.tv_sec = 5;  // 超时时间为 5 秒
@@ -131,7 +142,7 @@ int kmNet_init(const char *ip, const char *port, const char *mac) {
         close(sockClientfd);
         return 1;
     }
-
+#endif
     socklen_t clen = sizeof(addrSrv);
     err = recvfrom(sockClientfd, (char *)&rx, 1024, 0, (struct sockaddr *)&addrSrv, &clen);
     if (err < 0) return err_net_rx_timeout;
