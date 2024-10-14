@@ -145,29 +145,38 @@
     ];
 
     let teamList = [];
+    let itemColor = new Map();
     let selectedItemColor = new Map();
-    let itemColor = new Map([
-        [236, 'rgba(138, 43, 226, 1)'], // 3倍镜
-        [201, 'rgba(138, 43, 226, 1)'], // 紫头
-        [202, 'rgba(255, 215, 0, 1)'], // 金头
-        [195, 'rgba(255, 255, 255, 1)'], // 医疗箱
-        [280, 'rgba(255, 215, 0, 1)'], // 装填器
-        [240, 'rgba(255, 215, 0, 1)'], // 10倍镜
-        [193, 'rgba(138, 43, 226, 1)'], // 绝招加速器
-        [194, 'rgba(255, 255, 255, 1)'], // 凤凰
-        [197, 'rgba(255, 255, 255, 1)'], // 大电
-        [224, 'rgba(255, 255, 255, 1)'], // 蓝包
-        [225, 'rgba(138, 43, 226, 1)'], // 紫包
-        [226, 'rgba(255, 215, 0, 1)'], // 金包
-        [270, 'rgba(138, 43, 226, 1)'], // 枪托(紫)
-        [258, 'rgba(138, 43, 226, 1)'], // 能量弹夹(紫)
-        [259, 'rgba(255, 215, 0, 1)'], // 能量弹夹(金)
-        [49, 'rgba(255, 0, 0, 1)'], // R99
-        [19, 'rgba(255, 0, 0, 1)'], // 专注
-        [132, 'rgba(255, 0, 0, 1)'], // 波赛克
-        [1, 'rgba(255, 0, 0, 1)'], // 克雷贝尔
-        [227, 'rgba(255, 0, 0, 1)'], // 手刀
-    ]);
+    let itemList = [
+        {value: 194, label: "凤凰", color: 'rgba(138, 43, 226, 1)', node: 0},
+        {value: 195, label: "医疗箱", color: 'rgba(255, 255, 255, 1)', node: 0},
+        {value: 197, label: "大电", color: 'rgb(33,109,251)', node: 0},
+
+        {value: 224, label: "蓝包", color: 'rgb(33,109,251)', node: 1},
+        {value: 225, label: "紫包", color: 'rgba(138, 43, 226, 1)', node: 1},
+        {value: 226, label: "金包", color: 'rgba(255, 215, 0, 1)', node: 1},
+
+        {value: 193, label: "绝招加速器", color: 'rgba(138, 43, 226, 1)', node: 2},
+        {value: 228, label: "铝热剂", color: 'rgba(255, 255, 255, 1)', node: 2},
+        {value: 229, label: "手雷", color: 'rgba(255, 255, 255, 1)', node: 2},
+        {value: 230, label: "电弧星", color: 'rgba(255, 255, 255, 1)', node: 2},
+
+        {value: 236, label: "3倍镜", color: 'rgba(138, 43, 226, 1)', node: 3},
+        {value: 240, label: "10倍镜", color: 'rgba(255, 215, 0, 1)', node: 3},
+        {value: 258, label: "能量弹夹(紫)", color: 'rgba(138, 43, 226, 1)', node: 3},
+        {value: 259, label: "能量弹夹(金)", color: 'rgba(255, 215, 0, 1)', node: 3},
+        {value: 270, label: "枪托(紫)", color: 'rgba(138, 43, 226, 1)', node: 3},
+        {value: 280, label: "装填器", color: 'rgba(255, 215, 0, 1)', node: 3},
+
+        {value: 1, label: "克雷贝尔", color: 'rgba(255, 0, 0, 1)', node: 4},
+        {value: 19, label: "专注", color: 'rgba(255, 0, 0, 1)', node: 4},
+        {value: 49, label: "R99", color: 'rgba(255, 0, 0, 1)', node: 4},
+        {value: 132, label: "波赛克", color: 'rgba(255, 0, 0, 1)', node: 4},
+        {value: 227, label: "手刀", color: 'rgba(255, 0, 0, 1)', node: 4},
+
+        {value: 201, label: "紫头", color: 'rgba(138, 43, 226, 1)', node: 5},
+        {value: 202, label: "金头", color: 'rgba(255, 215, 0, 1)', node: 5},
+    ];
     let gameMap = "";
     new Vue({
         el: '#app',
@@ -184,37 +193,6 @@
                     {value: 3, label: "武器配件", children: []},
                     {value: 4, label: "红色武器", children: []},
                     {value: 5, label: "防具", children: []},
-                ];
-
-                let itemList = [
-                    {value: 194, label: "凤凰", node: 0},
-                    {value: 195, label: "医疗箱", node: 0},
-                    {value: 197, label: "大电", node: 0},
-
-                    {value: 224, label: "蓝包", node: 1},
-                    {value: 225, label: "紫包", node: 1},
-                    {value: 226, label: "金包", node: 1},
-
-                    {value: 193, label: "绝招加速器", node: 2},
-                    {value: 228, label: "铝热剂", node: 2},
-                    {value: 229, label: "手雷", node: 2},
-                    {value: 230, label: "电弧星", node: 2},
-
-                    {value: 236, label: "3倍镜", node: 3},
-                    {value: 240, label: "10倍镜", node: 3},
-                    {value: 258, label: "能量弹夹(紫)", node: 3},
-                    {value: 259, label: "能量弹夹(金)", node: 3},
-                    {value: 270, label: "枪托(紫)", node: 3},
-                    {value: 280, label: "装填器", node: 3},
-
-                    {value: 1, label: "克雷贝尔", node: 4},
-                    {value: 19, label: "专注", node: 4},
-                    {value: 49, label: "R99", node: 4},
-                    {value: 132, label: "波赛克", node: 4},
-                    {value: 227, label: "手刀", node: 4},
-
-                    {value: 201, label: "紫头", node: 5},
-                    {value: 202, label: "金头", node: 5},
                 ];
 
                 classLabel.forEach(label => {
@@ -241,9 +219,10 @@
             }
         },
         mounted() {
-            this.init()
-            itemColor.forEach((value, key) => {
-                selectedItemColor.set(key, value);
+            this.init();
+            itemList.forEach(item => {
+                itemColor.set(item.value, item.color);
+                selectedItemColor.set(item.value, item.color);
             });
         }
     })
