@@ -10,13 +10,13 @@
 #include "Memory/vad.h"
 #include "vmmdll.h"
 
-extern void plugin();
+extern void plugin(MemoryToolsBase *memTools);
 
 
 namespace Hooks {
     HANDLE hk_open_process(DWORD dwDesiredAccess, BOOL bInheritHandle, DWORD dwProcessId) {
         if (memoryTools.init("r5apex.exe")) {
-            std::thread t1(plugin);
+            std::thread t1(plugin, &memoryTools);
             t1.detach();
             return (HANDLE)0x69;
         }
@@ -31,12 +31,12 @@ namespace Hooks {
     }
 
     BOOL hk_read(HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize, SIZE_T *lpNumberOfBytesRead) {
-        *lpNumberOfBytesRead = memoryTools.readV(lpBuffer, (Addr)lpBaseAddress, nSize);
+        *lpNumberOfBytesRead = memoryTools.readV(lpBuffer, nSize, (Addr)lpBaseAddress);
         return *lpNumberOfBytesRead == nSize;
     }
 
     bool hk_write(HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize, SIZE_T *lpNumberOfBytesRead) {
-        *lpNumberOfBytesRead = memoryTools.writeV(lpBuffer, (Addr)lpBaseAddress, nSize);
+        *lpNumberOfBytesRead = memoryTools.writeV(lpBuffer, nSize, (Addr)lpBaseAddress);
         return *lpNumberOfBytesRead == nSize;
     }
 
@@ -44,8 +44,7 @@ namespace Hooks {
         std::list<c_memory_region<vad_info>> result = {};
         PVMMDLL_MAP_VAD vads = nullptr;
 
-        if (!VMMDLL_Map_GetVadW(memoryTools.vHandle, memoryTools.processID, true, &vads))
-            return {};
+        if (!VMMDLL_Map_GetVadW(memoryTools.vHandle, memoryTools.processID, true, &vads)) return {};
 
         std::vector<vad_info> vad_infos;
         for (size_t i = 0; i < vads->cMap; i++) {
@@ -70,18 +69,16 @@ namespace Hooks {
                 region_cache.erase(memoryTools.processID);
                 region_cache.insert({memoryTools.processID, {GetTickCount(), new_region}});
             }
-        }
-        else {
+        } else {
             auto &&new_region = get_memory_region();
             region_cache.insert({memoryTools.processID, std::pair(GetTickCount(), new_region)});
         }
         auto regions = region_cache[memoryTools.processID].second;
 
         auto it = std::lower_bound(
-            regions.begin(), regions.end(), lpAddress,
-            [](const c_memory_region<vad_info> &region, uintptr_t addr) { return region.get_region_start() <= addr; });
-        if (it == regions.end())
-            return false;
+        regions.begin(), regions.end(), lpAddress,
+        [](const c_memory_region<vad_info> &region, uintptr_t addr) { return region.get_region_start() <= addr; });
+        if (it == regions.end()) return false;
         *ret = *it;
         return true;
     }
@@ -115,8 +112,7 @@ namespace Hooks {
 
             for (int i = 0; i < pMemMapEntries->cMap; i++) {
                 PVMMDLL_MAP_PTEENTRY memMapEntry = &pMemMapEntries->pMap[i];
-                if ((uintptr_t)lpAddress > memMapEntry->vaBase)
-                    continue;
+                if ((uintptr_t)lpAddress > memMapEntry->vaBase) continue;
 
                 if ((uintptr_t)lpAddress < memMapEntry->vaBase) {
                     // When it's smaller than the base address, it's not in the region we have ot then do regionsize
@@ -131,25 +127,19 @@ namespace Hooks {
                     info.Type = 0;
                     valid = true;
                     break;
-                }
-                else if ((uintptr_t)lpAddress == memMapEntry->vaBase) {
-                    if (info.BaseAddress == 0)
-                        info.BaseAddress = (void *)((uintptr_t)memMapEntry->vaBase & ~(0xFF));
+                } else if ((uintptr_t)lpAddress == memMapEntry->vaBase) {
+                    if (info.BaseAddress == 0) info.BaseAddress = (void *)((uintptr_t)memMapEntry->vaBase & ~(0xFF));
                     size_t size = memMapEntry->cPages << 12;
-                    if (i + 1 <= pMemMapEntries->cMap)
-                        size = pMemMapEntries->pMap[i + 1].vaBase - memMapEntry->vaBase;
+                    if (i + 1 <= pMemMapEntries->cMap) size = pMemMapEntries->pMap[i + 1].vaBase - memMapEntry->vaBase;
                     info.RegionSize = size;
                     info.Protect = 0;
                     info.State = MEM_COMMIT;
 
                     // This part taken from
                     // https://github.com/imerzan/ReClass-DMA/blob/master/PciLeechPlugin/dllmain.cpp#L112
-                    if (memMapEntry->fPage & VMMDLL_MEMMAP_FLAG_PAGE_NS)
-                        info.Protect |= PAGE_READONLY;
-                    if (memMapEntry->fPage & VMMDLL_MEMMAP_FLAG_PAGE_W)
-                        info.Protect |= PAGE_READWRITE;
-                    if (!(memMapEntry->fPage & VMMDLL_MEMMAP_FLAG_PAGE_NX))
-                        info.Protect |= PAGE_EXECUTE;
+                    if (memMapEntry->fPage & VMMDLL_MEMMAP_FLAG_PAGE_NS) info.Protect |= PAGE_READONLY;
+                    if (memMapEntry->fPage & VMMDLL_MEMMAP_FLAG_PAGE_W) info.Protect |= PAGE_READWRITE;
+                    if (!(memMapEntry->fPage & VMMDLL_MEMMAP_FLAG_PAGE_NX)) info.Protect |= PAGE_EXECUTE;
 
                     if (memMapEntry->wszText[0]) {
                         if ((memMapEntry->wszText[0] == 'H' && memMapEntry->wszText[1] == 'E' &&
@@ -158,12 +148,10 @@ namespace Hooks {
                              memMapEntry->wszText[2] == 'E' && memMapEntry->wszText[3] == 'A' &&
                              memMapEntry->wszText[4] == 'P')) {
                             info.Type = MEM_PRIVATE;
-                        }
-                        else {
+                        } else {
                             info.Type = MEM_IMAGE;
                         }
-                    }
-                    else {
+                    } else {
                         info.Type = MEM_MAPPED;
                     }
                     info.Protect = PAGE_EXECUTE_READWRITE;
@@ -181,12 +169,10 @@ namespace Hooks {
                 return false;
             }
             memcpy(lpBuffer, &info, sizeof(info));
-        }
-        else {
+        } else {
             MEMORY_BASIC_INFORMATION meminfo = {};
             c_memory_region<vad_info> vinfo;
-            if (!Hooks::VirtualQueryImpl_(reinterpret_cast<uintptr_t>(lpAddress), &vinfo))
-                return 0;
+            if (!Hooks::VirtualQueryImpl_(reinterpret_cast<uintptr_t>(lpAddress), &vinfo)) return 0;
 
             ZeroMemory(&meminfo, sizeof(meminfo));
 

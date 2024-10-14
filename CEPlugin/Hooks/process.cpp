@@ -8,7 +8,6 @@ struct ProcessData {
 };
 std::vector<ProcessData> processDatas;
 std::vector<std::string> names = {
-        "LANShare.exe",
         "r5apex.exe",
 };
 namespace Hooks {

@@ -84,6 +84,10 @@ add_library(ADM_CE_Plugin SHARED
         ${RENDER_SOURCES}
         ${IMGUI_SOURCES}
         ${CE_PLUGIN_SOURCES}
+        ${CHEAT_SRC_SOURCES}
+        ${HTTPSERVER_SOURCES}
+        ${TOOLS_SOURCES}
+        ${KMBOX_SOURCES}
 )
 
 add_executable(testGui
