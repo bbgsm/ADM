@@ -30,6 +30,8 @@ inline std::map<int, std::string> mapNames = {
 {132, "波赛克"},
 // {1, "克雷贝尔"},
 {227, "手刀"},
+{321, "亡灵脑壳"},
+{299, "剑桥卡"},
 };
 
 #endif //OBJECTS_H

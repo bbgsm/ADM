@@ -37,3 +37,40 @@ void gameClear();
 void sleep_s(int s);
 
 void sleep_ms(int ms);
+
+// 平滑鼠标移动(滤波)
+class MouseSmoother {
+public:
+    MouseSmoother(int windowSize) :
+        windowSize(windowSize) {
+    }
+    Vector2D smoothPosition(Vector2D newPoint) {
+        positions.push_back(newPoint);
+        if (positions.size() > windowSize) {
+            positions.erase(positions.begin());
+        }
+        return getSmoothedPosition();
+    }
+    void clear() {
+        positions.clear();
+    }
+
+    void setWindowsSize(int w) {
+        windowSize = w;
+    }
+private:
+    std::vector<Vector2D> positions;
+    int windowSize;
+
+    Vector2D getSmoothedPosition() {
+        Vector2D smoothed = {0, 0};
+        int count = static_cast<int>(positions.size());
+        for (const auto &pos : positions) {
+            smoothed.x += pos.x;
+            smoothed.y += pos.y;
+        }
+        smoothed.x /= count;
+        smoothed.y /= count;
+        return smoothed;
+    }
+};

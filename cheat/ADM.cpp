@@ -21,12 +21,14 @@
 
 MemoryToolsBase *mem;
 Render render;
+
 struct EntityAddr {
     Addr addr = 0;
     Addr _addr1 = 0;
     Addr _addr2 = 0;
     Addr _addr3 = 0;
 };
+
 // 对象结构体
 struct OObject {
     // 距离(米)
@@ -79,6 +81,8 @@ float line = 1;
 float range = 300;
 float matrix[16];
 
+bool admDebug = false;
+
 /*** 玩家、物资 ***/
 OObject *mapObjectCache = new OObject[1100];
 int mapObjectCacheCount = 0;
@@ -110,6 +114,7 @@ std::mutex webMutex;
 /*** 自瞄 ***/
 float screenCenterX = 0;
 float screenCenterY = 0;
+// 准心与玩家相差距离实时上报
 int aimBotX = 0;
 int aimBotY = 0;
 int aimDis = 999999999;
@@ -176,9 +181,9 @@ int generateRandomNumber(int min, int max) {
 
 // 获取系统时间(ms)
 mlong getCurrentTime() {
-    timeval tv{};
-    gettimeofday(&tv, nullptr);
-    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 }
 
 void drawObject(ImColor color, const OObject &object) {
@@ -285,8 +290,10 @@ void objTest() {
                 }
                 int itemId = mem->readI(object, OFF_ITEM_ID);
                 int isBot = mem->readI(object, OFF_BOT);
-                if (!mapNames.contains(itemId) && isBot != 2) {
-                    continue;
+                if(!admDebug) {
+                    if (!mapNames.contains(itemId) && isBot != 2) {
+                        continue;
+                    }
                 }
                 cacheObjects[objectIndex].isPlayer = isBot == 2;
                 // 物品坐标
@@ -304,10 +311,14 @@ void objTest() {
                 cacheObjects[objectIndex].itemId = itemId;
                 cacheObjects[objectIndex].distance = dis;
                 cacheObjects[objectIndex].addr = object;
-                if (cacheObjects[objectIndex].isPlayer) {
-                    strcpy(cacheObjects[objectIndex].name, "机器人");
-                } else {
-                    strcpy(cacheObjects[objectIndex].name, mapNames[itemId].c_str());
+                if(admDebug) {
+                    strcpy(cacheObjects[objectIndex].name, std::to_string(itemId).c_str());
+                }else {
+                    if (cacheObjects[objectIndex].isPlayer) {
+                        strcpy(cacheObjects[objectIndex].name, "机器人");
+                    } else {
+                        strcpy(cacheObjects[objectIndex].name, mapNames[itemId].c_str());
+                    }
                 }
                 // strcpy(cacheObjects[objectIndex].name, longToHex(object).c_str());
                 // strcpy(cacheObjects[objectIndex].name, std::to_string(itemId).c_str());
@@ -326,8 +337,14 @@ void objTest() {
         } else {
             objectCount = 0;
         }
-        // 延时10秒
-        sleep_s(10);
+        if(admDebug) {
+            // 延时10秒
+            sleep_s(1);
+        }else {
+            // 延时10秒
+            sleep_s(10);
+        }
+
     }
     delete[] objectAddrs;
     delete[] cacheObjects;
@@ -362,8 +379,8 @@ bool handlePlayer(OObject &player, const OObject &localPlayer, Addr baseAddr, Im
     // 懒得画盾，暂时把盾和血量的总和加起来计算百分比
     // player.health = ((health + shieldHealth) / (maxShieldHealth + maxHealth)) * 100
     player.health = static_cast<int>((static_cast<float>(player.health + player.shieldHealth[0]) /
-                                      static_cast<float>(player.maxHealth + player.shieldHealth[1])) *
-                                     100.0F);
+            static_cast<float>(player.maxHealth + player.shieldHealth[1])) *
+        100.0F);
     /**** 自瞄预测 ****/
     // 延迟150ms左右计算两次坐标距离作为预测值并相加到每一帧上
     mlong time = getCurrentTime();
@@ -566,13 +583,16 @@ void surface(Addr baseAddr) {
 
         std::string PerformanceString = "Render FPS: " + std::to_string(static_cast<int>(ImGui::GetIO().Framerate));
         fpsDraw->AddText(ImVec2(10, 50), IM_COL32(255, 255, 255, 255), PerformanceString.c_str());
-        fpsDraw->AddCircle({screenCenterX, screenCenterY}, aimRange, IM_COL32(255, 255, 255, 255), 200, 2);
-
+        if (aimBot) {
+            // 画瞄准范围
+            fpsDraw->AddCircle({screenCenterX, screenCenterY}, aimRange, IM_COL32(255, 255, 255, 255), 200, 2);
+        }
         ImGui::SetNextWindowSize(ImVec2(400, 430), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(ImVec2(render.screenWidth - 410, 10), ImGuiCond_FirstUseEver);
         ImGui::Begin("ADM");
 
         ImGui::Checkbox("游戏状态", &gameState);
+        ImGui::Checkbox("调试模式", &admDebug);
         ImGui::Text("Game Map: %s", gameMap);
 
         if (ImGui::SliderFloat("框X偏移", &boxX, 0.0f, 100.0f, "%.2f")) {
@@ -661,7 +681,7 @@ void surface(Addr baseAddr) {
         if (gameState) {
 
             if (readMap) {
-                mem->readV(gameMap,50, baseAddr,OFF_LEVEL_NAME);
+                mem->readV(gameMap, 50, baseAddr, OFF_LEVEL_NAME);
                 readMap = false;
             }
 
@@ -678,7 +698,7 @@ void surface(Addr baseAddr) {
             // mem->addScatterReadV(handle, &isAim, sizeof(bool), localPlayerAddr, OFF_AIM);
             mem->addScatterReadV(handle, &isAim, sizeof(bool), baseAddr, OFF_FIRE1);
             mem->executeReadScatter(handle);
-            isAim = isAim && kmBox;
+            isAim = (isAim && aimBot && kmBox);
             // 读取玩家头部坐标
             readBonePosition(mem, localPlayer.headPosition, localPlayer.playerPosition, localPlayer.addr,
                              0 /*0为头部,范围0-9*/);
@@ -788,6 +808,7 @@ void surface(Addr baseAddr) {
     delete[] cacheObjects;
     delete[] bots;
 }
+
 /*** http 服务 ***/
 using namespace hv;
 WebSocketServer server;
@@ -810,7 +831,7 @@ public:
 
     static int handleMessage(const std::string &msg, enum ws_opcode opcode) {
         logDebug("onmessage(type=%s len=%d): %.*s\n", opcode == WS_OPCODE_TEXT ? "text" : "binary", (int)msg.size(),
-                 (int)msg.size(), msg.data());
+            (int)msg.size(), msg.data());
         return msg.size();
     }
 
@@ -889,7 +910,9 @@ void sendWebsocket() {
 
 void websocketServer() {
     int port = 6888;
-    http.GET("/ping", [](const HttpContextPtr &ctx) { return ctx->send("pong", TEXT_HTML); });
+    http.GET("/ping", [](const HttpContextPtr &ctx) {
+        return ctx->send("pong", TEXT_HTML);
+    });
     http.Static("/", "webMap");
 
     wws.onopen = [](const WebSocketChannelPtr &channel, const HttpRequestPtr &req) {
@@ -922,22 +945,31 @@ void websocketServer() {
     sendWebsocketTh.detach();
 }
 
+// MouseSmoother mouseSmoother(40);
+
 // 自瞄线程
 void aimBotThread() {
     while (isRun) {
-        if (kmBox && aimAddr != 0 && (aimBotX != 0 || aimBotY != 0)) {
+        if (aimAddr != 0 && (aimBotX != 0 || aimBotY != 0)) {
             // 曲线公式
-            auto xx = static_cast<float>(aimBotSpeed / 10.0F * sqrt(abs(aimBotX)));
-            auto yy = static_cast<float>(aimBotSpeed / 10.0F * sqrt(abs(aimBotY)));
-            if (xx > 100) {
-                xx = 100;
+            auto moveX = static_cast<float>(aimBotSpeed / 10.0F * sqrt(abs(aimBotX)));
+            auto moveY = static_cast<float>(aimBotSpeed / 10.0F * sqrt(abs(aimBotY)));
+            // 限制单次移动步进距离
+            if (moveX > 100) {
+                moveX = 100;
             }
-            if (yy > 100) {
-                yy = 100;
+            if (moveY > 100) {
+                moveY = 100;
             }
-            xx = xx * static_cast<float>(aimBotX > 0 ? 1 : -1);
-            yy = yy * static_cast<float>(aimBotY > 0 ? 1 : -1);
-            // logInfo("aAddr: %llX x:%f y: %f\n", aimAddr, xx, yy);
+            moveX = moveX * static_cast<float>(aimBotX > 0 ? 1 : -1);
+            moveY = moveY * static_cast<float>(aimBotY > 0 ? 1 : -1);
+            // 平滑移动(滤波)，效果不好暂时不用
+            // Vector2D smoothed = mouseSmoother.smoothPosition({moveX,moveY});
+            // const auto xx = static_cast<short>(smoothed.x);
+            // const auto yy = static_cast<short>(smoothed.y);
+            // logInfo("aAddr: %llX x:%d y: %d\n", aimAddr, xx, yy);
+            auto xx = static_cast<short>(moveX);
+            auto yy = static_cast<short>(moveY);
             // 消抖
             if (abs(xx) < 2) {
                 xx = 0;
@@ -946,11 +978,13 @@ void aimBotThread() {
             if (abs(yy) < 2) {
                 yy = 0;
             }
-            if (yy != 0 || xx != 0) {
-                kmNet_mouse_move(static_cast<short>(xx), static_cast<short>(yy));
+            if (xx != 0 || yy != 0) {
+                kmNet_mouse_move(xx, yy);
             }
             aimBotX = 0;
             aimBotY = 0;
+        } else {
+            // mouseSmoother.clear();
         }
         sleep_ms(10);
     }
@@ -984,8 +1018,6 @@ int main() {
     if (!iniFile->read(ini)) {
         iniFile->write(ini);
     }
-    // 可以直接在游戏电脑上读取内存（不怕封号就逝逝）
-    // mem = new DirectMemoryTools();
     // Dma读取内存
     mem = new DmaMemoryTools();
     if (!mem->init("r5apex.exe")) {
@@ -995,13 +1027,13 @@ int main() {
     }
     // 读取Dump的内存
     // mem = new DumpMemoryTools();
-    // if (!mem->init("C:\\dumpMem\\apex11\\dict.txt")) {
+    // if (!mem->init("C:\\dumpMem\\apex13\\dict.txt")) {
     //     logInfo("Failed to initialized Dump\n");
     // } else {
     //     logInfo("Dump initialized\n");
     // }
     plugin();
-    if(kmBox) {
+    if (kmBox) {
         kmNet_close();
     }
     delete iniFile;

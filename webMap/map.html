@@ -160,6 +160,7 @@
         {value: 228, label: "铝热剂", color: 'rgba(255, 255, 255, 1)', node: 2},
         {value: 229, label: "手雷", color: 'rgba(255, 255, 255, 1)', node: 2},
         {value: 230, label: "电弧星", color: 'rgba(255, 255, 255, 1)', node: 2},
+        {value: 321, label: "亡灵脑壳", color: 'rgba(255, 0, 0, 1)', node: 2},
 
         {value: 236, label: "3倍镜", color: 'rgba(138, 43, 226, 1)', node: 3},
         {value: 240, label: "10倍镜", color: 'rgba(255, 215, 0, 1)', node: 3},
@@ -176,6 +177,9 @@
 
         {value: 201, label: "紫头", color: 'rgba(138, 43, 226, 1)', node: 5},
         {value: 202, label: "金头", color: 'rgba(255, 215, 0, 1)', node: 5},
+
+        {value: 299, label: "舰桥卡", color: 'rgba(255, 0, 0, 1)', node: 6},
+
     ];
     let gameMap = "";
     new Vue({
@@ -193,6 +197,7 @@
                     {value: 3, label: "武器配件", children: []},
                     {value: 4, label: "红色武器", children: []},
                     {value: 5, label: "防具", children: []},
+                    {value: 6, label: "钥匙", children: []},
                 ];
 
                 classLabel.forEach(label => {
