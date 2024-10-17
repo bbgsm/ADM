@@ -122,7 +122,7 @@ float aimRandomX = 0;
 float aimRandomY = 0;
 mlong aimTime = 0;
 Addr aimAddr = 0;
-float aimBotSpeed = 5;
+float aimBotSpeed = 8;
 // 自瞄随机部分刷新间隔(毫秒)
 mlong aimRandomRefreshDelay = 500;
 // 记录上一次循环玩家位置
