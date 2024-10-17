@@ -4,6 +4,12 @@ Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运
 # 克隆
 * 因为有子模块需要用下面命令克隆
 * `git clone --recursive https://github.com/bbgsm/ADM.git`
+* 不要直接用github的下载zip功能，必须要用上面命令克隆
+* 克隆慢的话用代理，自己有代理的话用下面命令配置git代理加速
+```shell
+git config --global http.proxy 127.0.0.1:1080
+git config --global https.proxy 127.0.0.1:1080
+```
 
 # 编译
 - Windows
