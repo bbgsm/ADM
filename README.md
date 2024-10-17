@@ -4,9 +4,22 @@ Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运
 # 克隆
 * 因为有子模块需要用下面命令克隆
 * `git clone --recursive https://github.com/bbgsm/ADM.git`
-* 
-# Telegram
-* [✈️飞机群](https://t.me/+R3hf2s4ZVF81YmZl)
+
+# 编译
+- Windows
+  编译环境: Clion + cmake + vs2022,vs2022 首先需要装Windows 10 SDK 开发包和 C/C++ 编译工具配置完成后，在 Clion 的 cmake 配置中选择vs2022编译工具链进行编译
+- 直接使用cmake命令编译 :
+```shell
+mkdir build 
+cd build 
+cmake -G "Visual Studio 17 2022" ..
+cmake.exe --build . --target ADM --config Release
+```
+- Linux
+  编译环境: Clion + cmake + Unix Makefiles, 在 Clion 的 cmake 配置中选择Unix Makefiles编译工具
+  <br/> 还需要安装: `sudo apt install libglfw3-dev`
+  <br/><span style="color:red">Linux 下编译完成后运行还需要需要把 [vmm.so] [leechcore.so] [leechcore_ft601_driver_linux.so] 三个库文件复制到/usr/lib64/下
+  并且用root权限执行<span/>
 
 # 注意
 - 辅助瞄准顾名思义就是用来辅助的，如果想完全当自瞄用，就把瞄准速度拉满，拉满不出一天号就没了
@@ -22,14 +35,6 @@ Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运
 * 运行ADM后访问下面地址
 * http://127.0.0.1:6888/map.html
 
-# 编译
-- Windows
-编译环境: Clion + cmake + vs2022, 在 Clion 的 cmake 配置中选择vs2022编译工具链进行编译
-- Linux
-编译环境: Clion + cmake + Unix Makefiles, 在 Clion 的 cmake 配置中选择Unix Makefiles编译工具
-  <br/> 还需要安装: `sudo apt install libglfw3-dev`
-  <br/><span style="color:red">Linux 下编译完成后运行还需要需要把 [vmm.so] [leechcore.so] [leechcore_ft601_driver_linux.so] 三个库文件复制到/usr/lib64/下
-  并且用root权限执行<span/>
 
 # 测试环境
 #### Windows
@@ -40,6 +45,8 @@ Apex Dma 方框、辅助瞄准、网页地图分享, 支持Windows和Linux上运
 - 副机: Ubuntu arm64 香橙派5 
 - Linux X64 待开发....
 
+# Telegram
+* [✈️飞机群](https://t.me/+R3hf2s4ZVF81YmZl)
 
 # 目录
 * [cheat 作弊主目录](cheat)
